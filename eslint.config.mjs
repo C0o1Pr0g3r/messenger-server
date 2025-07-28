@@ -13,6 +13,7 @@ export default tseslint.config(
       "eslint.config.mjs",
       "prettier.config.mjs",
       "lint-staged.config.mjs",
+      "commitlint.config.mjs",
     ],
   },
   eslint.configs.recommended,
