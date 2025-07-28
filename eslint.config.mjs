@@ -7,7 +7,13 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: ["dist", "eslint.config.mjs", "prettier.config.mjs"],
+    ignores: [
+      "dist",
+      "lint-staged",
+      "eslint.config.mjs",
+      "prettier.config.mjs",
+      "lint-staged.config.mjs",
+    ],
   },
   eslint.configs.recommended,
   {
