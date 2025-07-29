@@ -1,4 +1,4 @@
-import type { ColumnOptions } from "typeorm";
+import type { ColumnOptions, QueryRunner } from "typeorm";
 import { z } from "zod";
 
 import { Zod } from "../../common";
@@ -37,4 +37,8 @@ function toColumnOptions<
   );
 }
 
-export { toColumnOptions };
+function getBoundSql(queryRunner: QueryRunner) {
+  return queryRunner.sql.bind(queryRunner);
+}
+
+export { getBoundSql, toColumnOptions };
