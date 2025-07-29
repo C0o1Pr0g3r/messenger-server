@@ -21,16 +21,16 @@ const META = {
 @Entity(META.tableName)
 class Message {
   @PrimaryGeneratedColumn("identity")
-  id: number;
+  id!: number;
 
   @Column(toColumnOptions(domain.Message.zSchema.shape.text))
-  text: string;
+  text!: string;
 
   @CreateDateColumn({
     type: "timestamp",
     name: "created_at",
   })
-  createdAt: Date;
+  createdAt!: Date;
 
   @ManyToOne(() => User, ({ messages }) => messages, {
     nullable: false,
@@ -38,7 +38,7 @@ class Message {
   @JoinColumn({
     name: "author_id",
   })
-  author: User;
+  author!: User;
 
   @ManyToOne(() => Chat, ({ messages }) => messages, {
     nullable: false,
@@ -46,7 +46,7 @@ class Message {
   @JoinColumn({
     name: "chat_id",
   })
-  chat: Chat;
+  chat!: Chat;
 }
 
 export { Message };

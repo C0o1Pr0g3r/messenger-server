@@ -25,22 +25,22 @@ const META = {
 @Entity(META.tableName)
 class Chat {
   @PrimaryGeneratedColumn("identity")
-  id: number;
+  id!: number;
 
   @Column(toColumnOptions(domain.Chat.zSchema.shape.name))
-  name: string;
+  name!: string;
 
   @Column(toColumnOptions(domain.Chat.zSchema.shape.link))
   @Index(META.constraints.link, {
     unique: true,
   })
-  link: string;
+  link!: string;
 
   @Column({
     ...toColumnOptions(domain.Chat.zSchema.shape.type),
     enumName: "chat_type",
   })
-  type: domain.Chat.Attribute.Type.Schema;
+  type!: domain.Chat.Attribute.Type.Schema;
 
   @ManyToOne(() => User, ({ chats }) => chats, {
     nullable: false,
@@ -48,10 +48,10 @@ class Chat {
   @JoinColumn({
     name: "author_id",
   })
-  author: User;
+  author!: User;
 
   @OneToMany(() => Message, ({ chat }) => chat)
-  messages: Message[];
+  messages!: Message[];
 }
 
 export { Chat };

@@ -17,35 +17,35 @@ const META = {
 @Entity(META.tableName)
 class User {
   @PrimaryGeneratedColumn("identity")
-  id: number;
+  id!: number;
 
   @Column(toColumnOptions(domain.User.zSchema.shape.nickname))
-  nickname: string;
+  nickname!: string;
 
   @Column(toColumnOptions(domain.User.zSchema.shape.email))
   @Index(META.constraints.email, {
     unique: true,
   })
-  email: string;
+  email!: string;
 
   @Column({
     ...toColumnOptions(domain.User.zSchema.shape.passwordHash),
     name: "password_hash",
   })
-  passwordHash: string;
+  passwordHash!: string;
 
   @Column({
     ...toColumnOptions(domain.User.zSchema.shape.isPrivate),
     name: "is_private",
     default: false,
   })
-  isPrivate: boolean;
+  isPrivate!: boolean;
 
   @OneToMany(() => Chat, ({ author }) => author)
-  chats: Chat[];
+  chats!: Chat[];
 
   @OneToMany(() => Message, ({ author }) => author)
-  messages: Message[];
+  messages!: Message[];
 }
 
 export { User };
