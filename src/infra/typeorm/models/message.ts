@@ -1,15 +1,9 @@
-import {
-  Column,
-  CreateDateColumn,
-  Entity,
-  JoinColumn,
-  ManyToOne,
-  PrimaryGeneratedColumn,
-} from "typeorm";
+import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 
 import { toColumnOptions } from "../utils";
 
 import { Chat } from "./chat";
+import { LifeCycleDates } from "./life-cycle-dates";
 import { User } from "./user";
 
 import * as domain from "~/domain";
@@ -26,11 +20,10 @@ class Message {
   @Column(toColumnOptions(domain.Message.zSchema.shape.text))
   text!: string;
 
-  @CreateDateColumn({
-    type: "timestamp",
-    name: "created_at",
+  @Column(() => LifeCycleDates, {
+    prefix: false,
   })
-  createdAt!: Date;
+  lifeCycleDates!: LifeCycleDates;
 
   @ManyToOne(() => User, ({ messages }) => messages, {
     nullable: false,
@@ -49,4 +42,4 @@ class Message {
   chat!: Chat;
 }
 
-export { Message };
+export { Message, META as MESSAGE_META };

@@ -10,6 +10,7 @@ import {
 
 import { toColumnOptions } from "../utils";
 
+import { LifeCycleDates } from "./life-cycle-dates";
 import { Message } from "./message";
 import { User } from "./user";
 
@@ -42,6 +43,11 @@ class Chat {
   })
   type!: domain.Chat.Attribute.Type.Schema;
 
+  @Column(() => LifeCycleDates, {
+    prefix: false,
+  })
+  lifeCycleDates!: LifeCycleDates;
+
   @ManyToOne(() => User, ({ chats }) => chats, {
     nullable: false,
   })
@@ -54,4 +60,4 @@ class Chat {
   messages!: Message[];
 }
 
-export { Chat };
+export { Chat, META as CHAT_META };

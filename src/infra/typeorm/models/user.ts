@@ -3,6 +3,7 @@ import { Column, Entity, Index, OneToMany, PrimaryGeneratedColumn } from "typeor
 import { toColumnOptions } from "../utils";
 
 import { Chat } from "./chat";
+import { LifeCycleDates } from "./life-cycle-dates";
 import { Message } from "./message";
 
 import * as domain from "~/domain";
@@ -41,6 +42,11 @@ class User {
   })
   isPrivate!: boolean;
 
+  @Column(() => LifeCycleDates, {
+    prefix: false,
+  })
+  lifeCycleDates!: LifeCycleDates;
+
   @OneToMany(() => Chat, ({ author }) => author)
   chats!: Chat[];
 
@@ -48,4 +54,4 @@ class User {
   messages!: Message[];
 }
 
-export { User };
+export { User, META as USER_META };
