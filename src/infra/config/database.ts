@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { Zod } from "~/common";
+
 const zDatabaseConfig = z
   .object({
     DATABASE_HOST: z.string().nonempty(),
@@ -7,7 +9,7 @@ const zDatabaseConfig = z
     DATABASE_USERNAME: z.string().nonempty(),
     DATABASE_PASSWORD: z.string().nonempty(),
     DATABASE_NAME: z.string().nonempty(),
-    DATABASE_SYNCHRONIZE: z.stringbool(),
+    DATABASE_SYNCHRONIZE: Zod.zBooleanishString,
   })
   .transform(
     ({

@@ -1,7 +1,8 @@
-import type { z } from "zod";
+import { z } from "zod";
 
-function isInt(schema: z.ZodNumber) {
-  return schema.format === "safeint";
-}
+const TRUE = "true";
+const FALSE = "false";
 
-export { isInt };
+const zBooleanishString = z.enum([TRUE, FALSE]).transform((value) => value === TRUE);
+
+export { FALSE, TRUE, zBooleanishString };

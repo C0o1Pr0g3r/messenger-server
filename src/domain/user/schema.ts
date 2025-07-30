@@ -7,7 +7,7 @@ import { Password, PasswordHash } from "./attributes";
 const zSchema = zLifeCycleDates.extend({
   id: z.number().int(),
   nickname: z.string().trim().nonempty(),
-  email: z.email(),
+  email: z.string().email(),
   password: Password.zSchema,
   passwordHash: PasswordHash.zSchema,
   isPrivate: z.boolean(),

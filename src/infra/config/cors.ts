@@ -1,9 +1,11 @@
 import { z } from "zod";
 
+import { Zod } from "~/common";
+
 const zCorsConfig = z
   .object({
-    CORS_ORIGIN: z.url(),
-    CORS_CREDENTIALS: z.stringbool(),
+    CORS_ORIGIN: z.string().url(),
+    CORS_CREDENTIALS: Zod.zBooleanishString,
   })
   .transform(({ CORS_ORIGIN, CORS_CREDENTIALS }) => ({
     origin: CORS_ORIGIN,

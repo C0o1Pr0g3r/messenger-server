@@ -1,22 +1,25 @@
 import type { ColumnOptions, QueryRunner } from "typeorm";
 import { z } from "zod";
 
-import { Zod } from "../../common";
-
 function toColumnOptions<
-  T extends z.ZodString | z.ZodNumber | z.ZodBoolean | z.ZodEnum | z.ZodNullable | z.ZodEmail,
+  T extends
+    | z.ZodString
+    | z.ZodNumber
+    | z.ZodBoolean
+    | z.ZodEnum<[string, ...string[]]>
+    | z.ZodNullable<z.ZodTypeAny>,
 >(type: T): ColumnOptions {
   const type_ = type instanceof z.ZodNullable ? type.unwrap() : type;
   const nullable = type instanceof z.ZodNullable;
 
-  if (type_ instanceof z.ZodString || type_ instanceof z.ZodEmail) {
+  if (type_ instanceof z.ZodString) {
     return {
       type: "text",
       nullable,
     };
   } else if (type_ instanceof z.ZodNumber) {
     return {
-      type: Zod.isInt(type_) ? "int" : "real",
+      type: type_.isInt ? "int" : "real",
       nullable,
     };
   } else if (type_ instanceof z.ZodBoolean) {
@@ -27,14 +30,12 @@ function toColumnOptions<
   } else if (type_ instanceof z.ZodEnum) {
     return {
       type: "enum",
-      enum: type_.options,
+      enum: (type_ as z.ZodEnum<[string, ...string[]]>).options,
       nullable,
     };
   }
 
-  throw new Error(
-    `There is no corresponding column type for zod type "${(type as z.ZodType).def.type}".`,
-  );
+  throw new Error(`There is no corresponding column type for zod type "${type._def.typeName}".`);
 }
 
 function getBoundSql(queryRunner: QueryRunner) {
