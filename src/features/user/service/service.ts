@@ -3,9 +3,9 @@ import { ConfigService } from "@nestjs/config";
 import { InjectRepository } from "@nestjs/typeorm";
 import * as bcrypt from "bcrypt";
 import { function as function_, taskEither } from "fp-ts";
-import { Repository } from "typeorm";
+import { ILike, Repository } from "typeorm";
 
-import { Common, Create, Get, GetById, UpdateMe } from "./ios";
+import { Common, Create, Get, GetByEmailOrNickname, GetById, UpdateMe } from "./ios";
 
 import { NotFoundError, UniqueKeyViolationError } from "~/app";
 import { Fp, UnexpectedError } from "~/common";
@@ -85,6 +85,33 @@ class UserService {
         (reason) => new UnexpectedError(reason),
       ),
       taskEither.flatMap(taskEither.fromNullable(new NotFoundError())),
+    );
+  }
+
+  getByEmailOrNickname({
+    emailOrNickname,
+  }: GetByEmailOrNickname.In): taskEither.TaskEither<UnexpectedError, GetByEmailOrNickname.Out> {
+    const baseWhere: NonNullable<Parameters<typeof this.userRepository.find>[0]>["where"] = {
+      isPrivate: false,
+    };
+    const likeArg = ILike(`${Typeorm.escapeLikeArgument(emailOrNickname)}%`);
+    return function_.pipe(
+      taskEither.tryCatch(
+        () =>
+          this.userRepository.find({
+            where: [
+              {
+                ...baseWhere,
+                nickname: likeArg,
+              },
+              {
+                ...baseWhere,
+                email: likeArg,
+              },
+            ],
+          }),
+        (reason) => new UnexpectedError(reason),
+      ),
     );
   }
 

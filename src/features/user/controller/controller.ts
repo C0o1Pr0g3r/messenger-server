@@ -13,7 +13,7 @@ import { function as function_, taskEither } from "fp-ts";
 
 import { UserService, UserServiceIos } from "../service";
 
-import { Common, GetById, UpdateMe } from "./ios";
+import { Common, GetByEmailOrNickname, GetById, UpdateMe } from "./ios";
 
 import { NotFoundError, UniqueKeyViolationError } from "~/app";
 import { Fp } from "~/common";
@@ -83,6 +83,19 @@ class UserController {
         )(),
       ),
     );
+  }
+
+  @Get("finduser")
+  async getByEmailOrNickname(
+    @Query() query: GetByEmailOrNickname.ReqQuery,
+  ): Promise<GetByEmailOrNickname.ResBody> {
+    return Fp.throwify(
+      await function_.pipe(
+        this.userService.getByEmailOrNickname({
+          emailOrNickname: query.user_data_to_find,
+        }),
+      )(),
+    ).map(mapUser);
   }
 }
 

@@ -42,4 +42,14 @@ function getBoundSql(queryRunner: QueryRunner) {
   return queryRunner.sql.bind(queryRunner);
 }
 
-export { getBoundSql, toColumnOptions };
+const SYMBOLS = ["%", "_"];
+
+function escapeLikeArgument(value: string) {
+  let escapedValue = value;
+  for (const symbol of SYMBOLS) {
+    escapedValue = escapedValue.replaceAll(symbol, `\\${symbol}`);
+  }
+  return escapedValue;
+}
+
+export { escapeLikeArgument, getBoundSql, toColumnOptions };
