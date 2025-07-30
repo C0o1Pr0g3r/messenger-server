@@ -12,7 +12,7 @@ const zAuthConfig = z
   })
   .transform(({ AUTH_ACCESS_TOKEN_SECRET, AUTH_ACCESS_TOKEN_LIFETIME }) => ({
     secret: AUTH_ACCESS_TOKEN_SECRET,
-    lifetime: AUTH_ACCESS_TOKEN_LIFETIME,
+    lifetime: AUTH_ACCESS_TOKEN_LIFETIME as ms.StringValue,
   }));
 type AuthConfig = z.infer<typeof zAuthConfig>;
 

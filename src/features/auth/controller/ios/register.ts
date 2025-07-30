@@ -1,8 +1,8 @@
 import { createZodDto } from "nestjs-zod";
 
-import { UserServiceIos } from "../../service";
+import { UserServiceIos } from "~/features/user/service";
 
-const zReqBody = UserServiceIos.Get.zIn;
+const zReqBody = UserServiceIos.Create.zIn;
 class ReqBody extends createZodDto(zReqBody) {}
 
 export { ReqBody, zReqBody };

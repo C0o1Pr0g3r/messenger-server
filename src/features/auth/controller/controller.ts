@@ -6,29 +6,26 @@ import {
   NotFoundException,
   Post,
 } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
 import { function as function_, taskEither } from "fp-ts";
-import * as jwt from "jsonwebtoken";
-import * as ms from "ms";
 
-import { UserService } from "../service";
+import { AuthService } from "../service";
 
-import { Common, Create, Login } from "./ios";
+import { Common, Login, Register } from "./ios";
 
 import { NotFoundError, UniqueKeyViolationError } from "~/app";
-import { Fp, UnexpectedError } from "~/common";
+import { Fp } from "~/common";
 import * as domain from "~/domain";
-import { Config } from "~/infra";
+import { UserService } from "~/features/user/service";
 
 @Controller("users")
-class UserController {
+export class AuthController {
   constructor(
-    private readonly configService: ConfigService<Config.Config, true>,
     private readonly userService: UserService,
+    private readonly authService: AuthService,
   ) {}
 
   @Post("register")
-  async register(@Body() body: Create.ReqBody): Promise<Common.ResBody> {
+  async register(@Body() body: Register.ReqBody): Promise<Common.ResBody> {
     const { id, nickname, email, isPrivate } = Fp.throwify(
       await function_.pipe(
         this.userService.create(body),
@@ -50,13 +47,8 @@ class UserController {
       email,
       private_acc: isPrivate,
       token: Fp.throwify(
-        await generateJwt({
-          ...this.configService.get("auth", {
-            infer: true,
-          }),
-          payload: {
-            userId: id,
-          },
+        await this.authService.generateJwt({
+          userId: id,
         })(),
       ).token,
     };
@@ -82,50 +74,10 @@ class UserController {
       email,
       private_acc: isPrivate,
       token: Fp.throwify(
-        await generateJwt({
-          ...this.configService.get("auth", {
-            infer: true,
-          }),
-          payload: {
-            userId: id,
-          },
+        await this.authService.generateJwt({
+          userId: id,
         })(),
       ).token,
     };
   }
 }
-
-function generateJwt<T extends Record<string, unknown>>({
-  secret,
-  payload,
-  lifetime,
-}: {
-  secret: string;
-  payload: T;
-  lifetime: ms.StringValue;
-}) {
-  const clonedPayload = globalThis.structuredClone(payload);
-  return function_.pipe(
-    taskEither.tryCatch(
-      () =>
-        new Promise<string>((resolve, reject) =>
-          jwt.sign(
-            clonedPayload,
-            secret,
-            {
-              expiresIn: lifetime,
-              mutatePayload: true,
-            },
-            (error, encoded) => (error === null ? resolve(encoded!) : reject(error)),
-          ),
-        ),
-      (reason) => new UnexpectedError(reason),
-    ),
-    taskEither.map((token) => ({
-      token,
-      payload: clonedPayload,
-    })),
-  );
-}
-
-export { UserController };

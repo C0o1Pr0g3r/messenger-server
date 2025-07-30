@@ -1,7 +1,7 @@
 import { createZodDto } from "nestjs-zod";
 import { z } from "zod";
 
-import { UserServiceIos } from "../../service";
+import { UserServiceIos } from "~/features/user/service";
 
 const zResBody = z.object({
   id_user: UserServiceIos.Common.zOut.shape.id,

@@ -8,7 +8,8 @@ import { ZodValidationPipe } from "nestjs-zod";
 
 import { AppController } from "./app.controller";
 import { AppService } from "./app.service";
-import { UserModule } from "./features/user/user.module";
+import { AuthModule } from "./features/auth/module";
+import { UserModule } from "./features/user/module";
 import { Config, Typeorm } from "./infra";
 
 expand(config());
@@ -26,6 +27,7 @@ expand(config());
       },
     }),
     UserModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [

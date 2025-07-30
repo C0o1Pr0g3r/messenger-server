@@ -1,3 +1,3 @@
 export * as Common from "./common";
-export * as Create from "./create";
 export * as Login from "./login";
+export * as Register from "./register";
