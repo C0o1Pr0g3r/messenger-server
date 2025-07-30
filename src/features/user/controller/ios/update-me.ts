@@ -18,12 +18,4 @@ const zReqBody = UserServiceIos.UpdateMe.zBaseIn
   .partial();
 class ReqBody extends createZodDto(zReqBody) {}
 
-const zResBody = z.object({
-  id_user: UserServiceIos.Common.zOut.shape.id,
-  nickname: UserServiceIos.Common.zOut.shape.nickname,
-  email: UserServiceIos.Common.zOut.shape.email,
-  private_acc: UserServiceIos.Common.zOut.shape.isPrivate,
-});
-class ResBody extends createZodDto(zResBody) {}
-
-export { ReqBody, ResBody, zReqBody, zResBody };
+export { ReqBody, zReqBody };

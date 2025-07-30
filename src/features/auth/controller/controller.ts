@@ -18,7 +18,7 @@ import * as domain from "~/domain";
 import { UserService } from "~/features/user/service";
 
 @Controller("users")
-export class AuthController {
+class AuthController {
   constructor(
     private readonly userService: UserService,
     private readonly authService: AuthService,
@@ -26,7 +26,7 @@ export class AuthController {
 
   @Post("register")
   async register(@Body() body: Register.ReqBody): Promise<Common.ResBody> {
-    const { id, nickname, email, isPrivate } = Fp.throwify(
+    const user = Fp.throwify(
       await function_.pipe(
         this.userService.create(body),
         taskEither.mapLeft((error) => {
@@ -42,13 +42,10 @@ export class AuthController {
     );
 
     return {
-      id_user: id,
-      nickname,
-      email,
-      private_acc: isPrivate,
+      ...mapUser(user),
       token: Fp.throwify(
         await this.authService.generateJwt({
-          userId: id,
+          userId: user.id,
         })(),
       ).token,
     };
@@ -56,7 +53,7 @@ export class AuthController {
 
   @Post("login")
   async login(@Body() body: Login.ReqBody): Promise<Common.ResBody> {
-    const { id, nickname, email, isPrivate } = Fp.throwify(
+    const user = Fp.throwify(
       await function_.pipe(
         this.userService.get(body),
         taskEither.mapLeft((error) => {
@@ -69,15 +66,28 @@ export class AuthController {
     );
 
     return {
-      id_user: id,
-      nickname,
-      email,
-      private_acc: isPrivate,
+      ...mapUser(user),
       token: Fp.throwify(
         await this.authService.generateJwt({
-          userId: id,
+          userId: user.id,
         })(),
       ).token,
     };
   }
 }
+
+function mapUser({
+  id,
+  nickname,
+  email,
+  isPrivate,
+}: Pick<domain.User.Schema, "id" | "nickname" | "email" | "isPrivate">) {
+  return {
+    id_user: id,
+    nickname,
+    email,
+    private_acc: isPrivate,
+  };
+}
+
+export { AuthController };

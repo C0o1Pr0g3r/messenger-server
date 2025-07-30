@@ -5,7 +5,7 @@ import * as bcrypt from "bcrypt";
 import { function as function_, taskEither } from "fp-ts";
 import { Repository } from "typeorm";
 
-import { Common, Create, Get, UpdateMe } from "./ios";
+import { Common, Create, Get, GetById, UpdateMe } from "./ios";
 
 import { NotFoundError, UniqueKeyViolationError } from "~/app";
 import { Fp, UnexpectedError } from "~/common";
@@ -72,6 +72,19 @@ class UserService {
           ),
         ),
       ),
+    );
+  }
+
+  getById({ id }: GetById.In): taskEither.TaskEither<UnexpectedError | NotFoundError, Common.Out> {
+    return function_.pipe(
+      taskEither.tryCatch(
+        () =>
+          this.userRepository.findOneBy({
+            id,
+          }),
+        (reason) => new UnexpectedError(reason),
+      ),
+      taskEither.flatMap(taskEither.fromNullable(new NotFoundError())),
     );
   }
 
