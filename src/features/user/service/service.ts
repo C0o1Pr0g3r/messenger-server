@@ -5,10 +5,10 @@ import * as bcrypt from "bcrypt";
 import { function as function_, taskEither } from "fp-ts";
 import { Repository } from "typeorm";
 
-import { Common, Create, Get } from "./ios";
+import { Common, Create, Get, UpdateMe } from "./ios";
 
 import { NotFoundError, UniqueKeyViolationError } from "~/app";
-import { UnexpectedError } from "~/common";
+import { Fp, UnexpectedError } from "~/common";
 import * as domain from "~/domain";
 import { Config, Typeorm } from "~/infra";
 
@@ -22,26 +22,17 @@ class UserService {
 
   create({
     password,
-    ...rest
+    ...params
   }: Create.In): taskEither.TaskEither<UnexpectedError | UniqueKeyViolationError, Common.Out> {
     return function_.pipe(
-      taskEither.tryCatch(
-        () =>
-          bcrypt.hash(
-            password,
-            this.configService.get("bcrypt", {
-              infer: true,
-            }).roundsForPasswordHash,
-          ),
-        (reason) => new UnexpectedError(reason),
-      ),
+      this.hashPassword(password),
       taskEither.flatMap((passwordHash) =>
         function_.pipe(
           taskEither.tryCatch(
             () =>
               this.userRepository.save(
                 Object.assign(this.userRepository.create(), {
-                  ...rest,
+                  ...params,
                   passwordHash,
                 } satisfies Partial<ReturnType<typeof this.userRepository.create>>),
               ),
@@ -75,12 +66,107 @@ class UserService {
       taskEither.flatMap(taskEither.fromNullable(new NotFoundError())),
       taskEither.flatMap((user) =>
         function_.pipe(
-          () => bcrypt.compare(password, user.passwordHash),
-          taskEither.fromTask,
+          this.doesPasswordMatchHash(password, user.passwordHash),
           taskEither.flatMap((arePasswordsEqual) =>
             arePasswordsEqual ? taskEither.right(user) : taskEither.left(new NotFoundError()),
           ),
         ),
+      ),
+    );
+  }
+
+  updateMe({
+    id,
+    ...params
+  }: UpdateMe.In): taskEither.TaskEither<
+    UnexpectedError | NotFoundError | UniqueKeyViolationError,
+    Common.Out
+  > {
+    return function_.pipe(
+      function_.pipe(
+        params.withPassword
+          ? function_.pipe(
+              taskEither.tryCatch(
+                () =>
+                  this.userRepository.findOneBy({
+                    id,
+                  }),
+                (reason) => new UnexpectedError(reason),
+              ),
+              taskEither.flatMap(taskEither.fromNullable(new NotFoundError())),
+              taskEither.flatMap(({ passwordHash }) =>
+                function_.pipe(
+                  this.doesPasswordMatchHash(params.currentPassword, passwordHash),
+                  taskEither.flatMap(
+                    taskEither.fromPredicate(
+                      (comparisonResult) => comparisonResult,
+                      () => new NotFoundError(),
+                    ),
+                  ),
+                  taskEither.flatMap(() => this.hashPassword(params.newPassword)),
+                ),
+              ),
+              taskEither.map((passwordHash) => {
+                const { withPassword, currentPassword, newPassword, ...rest } = params;
+                return {
+                  passwordHash,
+                  ...rest,
+                };
+              }),
+            )
+          : taskEither.right(
+              Fp.iife(() => {
+                const { withPassword, ...rest } = params;
+                return rest;
+              }),
+            ),
+      ),
+      taskEither.flatMap((dataForUpdate) =>
+        function_.pipe(
+          taskEither.tryCatch(
+            () =>
+              this.userRepository.save(
+                Object.assign(this.userRepository.create(), {
+                  id,
+                  ...dataForUpdate,
+                }),
+              ),
+            (reason) => {
+              if (
+                Typeorm.isUniqueViolationError(reason) &&
+                reason.driverError.constraint === Typeorm.Model.USER_META.constraints.email
+              )
+                return new UniqueKeyViolationError(domain.User.Constraint.UNIQUE_USER_EMAIL);
+
+              return new UnexpectedError(reason);
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  private hashPassword(password: domain.User.Schema["password"]) {
+    return taskEither.tryCatch(
+      () =>
+        bcrypt.hash(
+          password,
+          this.configService.get("bcrypt", {
+            infer: true,
+          }).roundsForPasswordHash,
+        ),
+      (reason) => new UnexpectedError(reason),
+    );
+  }
+
+  private doesPasswordMatchHash(
+    password: domain.User.Schema["password"],
+    hash: domain.User.Schema["passwordHash"],
+  ) {
+    return function_.pipe(
+      taskEither.tryCatch(
+        () => bcrypt.compare(password, hash),
+        (reason) => new UnexpectedError(reason),
       ),
     );
   }

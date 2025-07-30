@@ -10,5 +10,9 @@ function throwify<E extends Error, A>(value: either.Either<E, A>) {
   return value.right;
 }
 
-export { throwify };
+function iife<T extends unknown[], U>(fn: Fn<T, U>, ...args: T): U {
+  return fn(...args);
+}
+
+export { iife, throwify };
 export type { Fn, UnknownFn };
