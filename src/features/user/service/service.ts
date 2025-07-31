@@ -38,7 +38,7 @@ class UserService {
               ),
             (reason) => {
               if (
-                Typeorm.isUniqueViolationError(reason) &&
+                Typeorm.isUniqueKeyViolationError(reason) &&
                 reason.driverError.constraint === Typeorm.Model.USER_META.constraints.email
               )
                 return new UniqueKeyViolationError(domain.User.Constraint.UNIQUE_USER_EMAIL);
@@ -173,7 +173,7 @@ class UserService {
               ),
             (reason) => {
               if (
-                Typeorm.isUniqueViolationError(reason) &&
+                Typeorm.isUniqueKeyViolationError(reason) &&
                 reason.driverError.constraint === Typeorm.Model.USER_META.constraints.email
               )
                 return new UniqueKeyViolationError(domain.User.Constraint.UNIQUE_USER_EMAIL);

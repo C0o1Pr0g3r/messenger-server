@@ -25,7 +25,7 @@ class Message {
   })
   lifeCycleDates!: LifeCycleDates;
 
-  @ManyToOne(() => User, ({ messages }) => messages, {
+  @ManyToOne(() => User, ({ createdMessages }) => createdMessages, {
     nullable: false,
   })
   @JoinColumn({

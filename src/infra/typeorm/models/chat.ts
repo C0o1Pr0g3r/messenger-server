@@ -10,6 +10,7 @@ import {
 
 import { toColumnOptions } from "../utils";
 
+import { ChatParticipant } from "./chat-participant";
 import { LifeCycleDates } from "./life-cycle-dates";
 import { Message } from "./message";
 import { User } from "./user";
@@ -28,8 +29,11 @@ class Chat {
   @PrimaryGeneratedColumn("identity")
   id!: number;
 
-  @Column(toColumnOptions(domain.Chat.zSchema.shape.name))
-  name!: string;
+  @Column({
+    ...toColumnOptions(domain.Chat.zSchema.shape.name),
+    nullable: true,
+  })
+  name!: string | null;
 
   @Column(toColumnOptions(domain.Chat.zSchema.shape.link))
   @Index(META.constraints.link, {
@@ -48,7 +52,7 @@ class Chat {
   })
   lifeCycleDates!: LifeCycleDates;
 
-  @ManyToOne(() => User, ({ chats }) => chats, {
+  @ManyToOne(() => User, ({ createdChats }) => createdChats, {
     nullable: false,
   })
   @JoinColumn({
@@ -58,6 +62,9 @@ class Chat {
 
   @OneToMany(() => Message, ({ chat }) => chat)
   messages!: Message[];
+
+  @OneToMany(() => ChatParticipant, ({ chat }) => chat)
+  participants!: ChatParticipant[];
 }
 
 export { Chat, META as CHAT_META };

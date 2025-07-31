@@ -3,6 +3,7 @@ import { Column, Entity, Index, OneToMany, PrimaryGeneratedColumn } from "typeor
 import { toColumnOptions } from "../utils";
 
 import { Chat } from "./chat";
+import { ChatParticipant } from "./chat-participant";
 import { LifeCycleDates } from "./life-cycle-dates";
 import { Message } from "./message";
 
@@ -48,10 +49,13 @@ class User {
   lifeCycleDates!: LifeCycleDates;
 
   @OneToMany(() => Chat, ({ author }) => author)
-  chats!: Chat[];
+  createdChats!: Chat[];
 
   @OneToMany(() => Message, ({ author }) => author)
-  messages!: Message[];
+  createdMessages!: Message[];
+
+  @OneToMany(() => ChatParticipant, ({ user }) => user)
+  participantOfChats!: ChatParticipant[];
 }
 
 export { User, META as USER_META };
