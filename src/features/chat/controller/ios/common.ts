@@ -23,11 +23,11 @@ const zChatTypeFromNumber = zChatTypeAsNumber
   .pipe(Chat.Attribute.Type.zSchema);
 
 const zResBody = z.object({
-  id_chat: ChatServiceIos.Common.zOut.shape.id,
-  name_chat: ChatServiceIos.Common.zOut.shape.name,
-  rk_type_chat: ChatServiceIos.Common.zOut.shape.type,
-  link: ChatServiceIos.Common.zOut.shape.link,
-  users: ChatServiceIos.Common.zOut.shape.participants,
+  id_chat: Chat.zBaseSchema.shape.id,
+  name_chat: ChatServiceIos.Common.zPolylogueOutOut.shape.name,
+  rk_type_chat: Chat.Attribute.Type.zSchema,
+  link: ChatServiceIos.Common.zPolylogueOutOut.shape.link,
+  users: ChatServiceIos.Common.zBaseOut.shape.participants,
 });
 class ResBody extends createZodDto(zResBody) {}
 

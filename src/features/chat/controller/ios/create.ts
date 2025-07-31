@@ -12,7 +12,7 @@ const zReqBody = z
   .merge(
     z
       .object({
-        name_chat: Chat.zSchema.shape.name,
+        name_chat: Chat.zPolylogueSchema.shape.name,
         id_user: User.zSchema.shape.id,
       })
       .partial(),

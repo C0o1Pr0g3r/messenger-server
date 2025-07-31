@@ -2,8 +2,8 @@ import type { MigrationInterface, QueryRunner } from "typeorm";
 
 import { getBoundSql } from "../utils";
 
-export class CreateTableToStoreChatParticipants1753921918376 implements MigrationInterface {
-  name = "CreateTableToStoreChatParticipants1753921918376";
+export class MakeSomeChangesToChats1753966959280 implements MigrationInterface {
+  name = "MakeSomeChangesToChats1753966959280";
 
   async up(queryRunner: QueryRunner): Promise<void> {
     const sql = getBoundSql(queryRunner);
@@ -15,6 +15,16 @@ export class CreateTableToStoreChatParticipants1753921918376 implements Migratio
         "created_at" TIMESTAMP NOT NULL DEFAULT now(),
         CONSTRAINT "chat_participants_chat_id_user_id_pk" PRIMARY KEY ("chat_id", "user_id")
       )
+    `;
+    await sql`
+      ALTER TABLE "chats"
+      ALTER COLUMN "name"
+      DROP NOT NULL
+    `;
+    await sql`
+      ALTER TABLE "chats"
+      ALTER COLUMN "link"
+      DROP NOT NULL
     `;
     await sql`
       ALTER TABLE "chat_participants"
@@ -36,6 +46,16 @@ export class CreateTableToStoreChatParticipants1753921918376 implements Migratio
     await sql`
       ALTER TABLE "chat_participants"
       DROP CONSTRAINT "FK_9946d299e9ccfbee23aa40c5545"
+    `;
+    await sql`
+      ALTER TABLE "chats"
+      ALTER COLUMN "link"
+      SET NOT NULL
+    `;
+    await sql`
+      ALTER TABLE "chats"
+      ALTER COLUMN "name"
+      SET NOT NULL
     `;
     await sql`DROP TABLE "chat_participants"`;
   }

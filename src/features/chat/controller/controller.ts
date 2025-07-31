@@ -16,7 +16,7 @@ import { InterlocutorNotFoundError } from "../service/error";
 import { Common, Create } from "./ios";
 
 import { UniqueKeyViolationError } from "~/app";
-import { Fp } from "~/common";
+import { Fp, Str } from "~/common";
 import * as domain from "~/domain";
 import { AuthGuard } from "~/features/auth/auth.guard";
 import { CurrentUser, RequestWithUser } from "~/features/auth/current-user.decorator";
@@ -72,19 +72,16 @@ class ChatController {
   }
 }
 
-function mapChat({
-  id,
-  name,
-  link,
-  type,
-  participants,
-}: Pick<domain.Chat.Schema, "id" | "name" | "link" | "type"> &
-  Pick<ChatServiceIos.Common.Out, "participants">) {
+function mapChat({ id, type, participants, ...params }: ChatServiceIos.Common.Out) {
+  const { name = Str.EMPTY, link = Str.EMPTY } = params as Partial<
+    Pick<domain.Chat.PolylogueSchema, "name" | "link">
+  >;
+
   return {
     id_chat: id,
     name_chat: name,
-    rk_type_chat: type,
     link,
+    rk_type_chat: type,
     users: participants,
   };
 }

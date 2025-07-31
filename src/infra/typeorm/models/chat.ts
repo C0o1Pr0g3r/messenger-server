@@ -30,19 +30,22 @@ class Chat {
   id!: number;
 
   @Column({
-    ...toColumnOptions(domain.Chat.zSchema.shape.name),
+    ...toColumnOptions(domain.Chat.zPolylogueSchema.shape.name),
     nullable: true,
   })
   name!: string | null;
 
-  @Column(toColumnOptions(domain.Chat.zSchema.shape.link))
+  @Column({
+    ...toColumnOptions(domain.Chat.zPolylogueSchema.shape.link),
+    nullable: true,
+  })
   @Index(META.constraints.link, {
     unique: true,
   })
-  link!: string;
+  link!: string | null;
 
   @Column({
-    ...toColumnOptions(domain.Chat.zSchema.shape.type),
+    ...toColumnOptions(domain.Chat.Attribute.Type.zSchema),
     enumName: "chat_type",
   })
   type!: domain.Chat.Attribute.Type.Schema;

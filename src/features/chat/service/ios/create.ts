@@ -5,25 +5,30 @@ import { Chat, User } from "~/domain";
 const zBaseIn = z.object({
   authorId: User.zSchema.shape.id,
 });
+type BaseIn = z.infer<typeof zBaseIn>;
 
-const DISCRIMINATOR = "type";
+const COMMON_KEYS_FOR_PICK = {
+  type: true,
+} as const;
 
-const zIn = z.discriminatedUnion(DISCRIMINATOR, [
-  zBaseIn.extend({
-    [DISCRIMINATOR]: z.literal(Chat.Attribute.Type.zSchema.Enum.dialogue),
-    interlocutorId: User.zSchema.shape.id,
-  }),
+const zIn = z.discriminatedUnion(Chat.DISCRIMINATOR, [
   zBaseIn.merge(
-    Chat.zSchema
+    Chat.zDialogueSchema
       .pick({
-        name: true,
+        ...COMMON_KEYS_FOR_PICK,
       })
       .extend({
-        [DISCRIMINATOR]: z.literal(Chat.Attribute.Type.zSchema.Enum.polylogue),
+        interlocutorId: User.zSchema.shape.id,
       }),
+  ),
+  zBaseIn.merge(
+    Chat.zPolylogueSchema.pick({
+      ...COMMON_KEYS_FOR_PICK,
+      name: true,
+    }),
   ),
 ]);
 type In = z.infer<typeof zIn>;
 
 export { zBaseIn, zIn };
-export type { In };
+export type { BaseIn, In };

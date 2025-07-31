@@ -7,7 +7,7 @@ import { InterlocutorNotFoundError } from "./error";
 import { Common, Create } from "./ios";
 
 import { UniqueKeyViolationError } from "~/app";
-import { File, Fp, Generator, Str, UnexpectedError } from "~/common";
+import { File, Fp, Generator, ImpossibleError, UnexpectedError } from "~/common";
 import * as domain from "~/domain";
 import { Typeorm } from "~/infra";
 import { isForeignKeyViolationError } from "~/infra/typeorm";
@@ -24,7 +24,7 @@ class ChatService {
     authorId,
     ...params
   }: Create.In): taskEither.TaskEither<
-    UnexpectedError | UniqueKeyViolationError | InterlocutorNotFoundError,
+    UnexpectedError | ImpossibleError | UniqueKeyViolationError | InterlocutorNotFoundError,
     Common.Out
   > {
     return function_.pipe(
@@ -39,33 +39,48 @@ class ChatService {
           const author = Object.assign(userRepository.create(), {
             id: authorId,
           } satisfies Partial<ReturnType<typeof userRepository.create>>);
-          const chatCreationData =
-            params.type === domain.Chat.Attribute.Type.zSchema.Enum.dialogue
-              ? Fp.iife(() => {
-                  const { interlocutorId, ...rest } = params;
-                  return {
-                    ...rest,
-                    author,
-                  };
-                })
-              : Fp.iife(() => {
-                  return {
-                    ...params,
-                    author,
-                  };
-                });
 
           return function_.pipe(
-            Generator.safeUid(File.Base64.getNumberOfBytesToStore(CHAT_LINK_LENGTH)),
-            taskEither.flatMap((link) =>
+            params.type === domain.Chat.Attribute.Type.zSchema.Enum.dialogue
+              ? Fp.iife(() => {
+                  const { interlocutorId, type, ...rest } = params as Omit<
+                    typeof params,
+                    "type"
+                  > & {
+                    type: domain.Chat.Attribute.Type.Schema;
+                  };
+                  const data = {
+                    ...rest,
+                    type,
+                    author,
+                  };
+                  return taskEither.right<UnexpectedError, typeof data>(data);
+                })
+              : Fp.iife(() => {
+                  const { type, ...rest } = params as Omit<typeof params, "type"> & {
+                    type: domain.Chat.Attribute.Type.Schema;
+                  };
+                  return function_.pipe(
+                    Generator.safeUid(File.Base64.getNumberOfBytesToStore(CHAT_LINK_LENGTH)),
+                    taskEither.map((link) => ({
+                      ...rest,
+                      type,
+                      link,
+                      author,
+                    })),
+                  );
+                }),
+            taskEither.flatMap((chatCreationData) =>
               function_.pipe(
                 taskEither.tryCatch(
                   () =>
                     chatRepository.save(
-                      Object.assign(chatRepository.create(), {
-                        ...chatCreationData,
-                        link,
-                      } satisfies Partial<ReturnType<typeof chatRepository.create>>),
+                      Object.assign(
+                        chatRepository.create(),
+                        chatCreationData satisfies Partial<
+                          ReturnType<typeof chatRepository.create>
+                        >,
+                      ),
                     ),
                   (reason) => {
                     if (
@@ -118,11 +133,37 @@ class ChatService {
                     }),
                   (reason) => new UnexpectedError(reason),
                 ),
-                taskEither.map((participants) => ({
-                  ...chat,
-                  name: chat.name ?? Str.EMPTY,
-                  participants,
-                })),
+                taskEither.flatMap((participants) => {
+                  const { id } = chat;
+                  const baseChat = {
+                    id,
+                    participants,
+                  };
+
+                  return (
+                    chat.type === domain.Chat.Attribute.Type.Schema.dialogue
+                      ? taskEither.right({
+                          ...baseChat,
+                          type: domain.Chat.Attribute.Type.Schema.dialogue,
+                        })
+                      : Fp.iife(() => {
+                          const { name, link } = chat;
+                          if (!(typeof name === "string" && typeof link === "string"))
+                            return taskEither.left(
+                              new ImpossibleError("Polylogue chat must have a name and a link", {
+                                factualData: chat,
+                              }),
+                            );
+
+                          return taskEither.right({
+                            ...baseChat,
+                            name,
+                            link,
+                            type: domain.Chat.Attribute.Type.Schema.polylogue,
+                          });
+                        })
+                  ) satisfies ReturnType<InstanceType<typeof ChatService>["create"]>;
+                }),
               ),
             ),
           )();
