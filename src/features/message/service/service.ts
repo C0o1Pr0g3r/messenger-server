@@ -1,9 +1,9 @@
 import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { function as function_, taskEither } from "fp-ts";
-import { Repository } from "typeorm";
+import { DeepPartial, Repository } from "typeorm";
 
-import { GetMessagesByChatId, GetMine } from "./ios";
+import { Common, Create, GetMessagesByChatId, GetMine } from "./ios";
 
 import { NotFoundError } from "~/app";
 import { UnexpectedError } from "~/common";
@@ -14,6 +14,8 @@ class MessageService {
   constructor(
     @InjectRepository(Typeorm.Model.Chat)
     private readonly chatRepository: Repository<Typeorm.Model.Chat>,
+    @InjectRepository(Typeorm.Model.Message)
+    private readonly messageRepository: Repository<Typeorm.Model.Message>,
   ) {}
 
   getMine({ userId }: GetMine.In): taskEither.TaskEither<UnexpectedError, GetMine.Out> {
@@ -105,6 +107,67 @@ class MessageService {
             },
           }),
         ),
+      ),
+    );
+  }
+
+  create({
+    text,
+    authorId,
+    chatId,
+  }: Create.In): taskEither.TaskEither<UnexpectedError | NotFoundError, Common.Out> {
+    const baseWhere: NonNullable<Parameters<typeof this.chatRepository.findOne>[0]>["where"] = {
+      id: chatId,
+    };
+
+    return function_.pipe(
+      taskEither.tryCatch(
+        () =>
+          this.chatRepository.findOne({
+            where: [
+              {
+                ...baseWhere,
+                author: {
+                  id: authorId,
+                },
+              },
+              {
+                ...baseWhere,
+                participants: {
+                  userId: authorId,
+                },
+              },
+            ],
+          }),
+        (reason) => new UnexpectedError(reason),
+      ),
+      taskEither.flatMap(taskEither.fromNullable(new NotFoundError())),
+      taskEither.flatMap(() =>
+        function_.pipe(
+          taskEither.tryCatch(
+            () =>
+              this.messageRepository.save(
+                Object.assign(this.messageRepository.create(), {
+                  text,
+                  author: {
+                    id: authorId,
+                  },
+                  chat: {
+                    id: chatId,
+                  },
+                } satisfies DeepPartial<ReturnType<typeof this.messageRepository.create>>),
+              ),
+            (reason) => new UnexpectedError(reason),
+          ),
+        ),
+      ),
+      taskEither.map((message) =>
+        mapMessage({
+          ...message,
+          chat: {
+            id: chatId,
+          },
+        }),
       ),
     );
   }
