@@ -4,6 +4,7 @@ import { z } from "zod";
 import { ChatServiceIos } from "../../service";
 
 import { Chat } from "~/domain";
+import { UserServiceIos } from "~/features/user/service";
 
 const CHAT_TYPE_NUMBER_STARTS_WITH = 1;
 const zChatTypeAsNumber = z
@@ -27,7 +28,14 @@ const zResBody = z.object({
   name_chat: ChatServiceIos.Common.zPolylogueOutOut.shape.name,
   rk_type_chat: Chat.Attribute.Type.zSchema,
   link: ChatServiceIos.Common.zPolylogueOutOut.shape.link,
-  users: ChatServiceIos.Common.zBaseOut.shape.participants,
+  users: z.array(
+    z.object({
+      id_user: UserServiceIos.Common.zOut.shape.id,
+      nickname: UserServiceIos.Common.zOut.shape.nickname,
+      email: UserServiceIos.Common.zOut.shape.email,
+      private_acc: UserServiceIos.Common.zOut.shape.isPrivate,
+    }),
+  ),
 });
 class ResBody extends createZodDto(zResBody) {}
 

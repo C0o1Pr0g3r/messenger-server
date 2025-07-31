@@ -175,8 +175,8 @@ class ChatService {
         (reason) => new UnexpectedError(reason),
       ),
       taskEither.flatMap((chatModels) => {
-        const eitherChats = chatModels.map(({ author, participants, ...chatModel }) =>
-          mapChat(chatModel, [author, ...participants.map(({ user }) => user)]),
+        const eitherChats = chatModels.map(({ participants, ...chatModel }) =>
+          mapChat(chatModel, [chatModel.author, ...participants.map(({ user }) => user)]),
         );
 
         type Chat = Extract<
@@ -271,12 +271,13 @@ class ChatService {
 const CHAT_LINK_LENGTH = 16;
 
 function mapChat(
-  chatModel: Omit<Typeorm.Model.Chat, "author" | "participants">,
+  chatModel: Omit<Typeorm.Model.Chat, "participants">,
   participantModels: Typeorm.Model.User[],
 ) {
   const { id } = chatModel;
   const baseChat = {
     id,
+    authorId: chatModel.author.id,
     participants: participantModels,
   };
 

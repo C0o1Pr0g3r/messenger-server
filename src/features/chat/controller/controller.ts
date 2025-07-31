@@ -125,17 +125,32 @@ class ChatController {
   }
 }
 
+function mapUser({
+  id,
+  nickname,
+  email,
+  isPrivate,
+}: Pick<domain.User.Schema, "id" | "nickname" | "email" | "isPrivate">) {
+  return {
+    id_user: id,
+    nickname,
+    email,
+    private_acc: isPrivate,
+  };
+}
+
 function mapChat({ id, type, participants, ...params }: ChatServiceIos.Common.Out) {
-  const { name = Str.EMPTY, link = Str.EMPTY } = params as Partial<
-    Pick<domain.Chat.PolylogueSchema, "name" | "link">
-  >;
+  const {
+    name = participants.find(({ id }) => id !== params.authorId)?.nickname ?? Str.EMPTY,
+    link = Str.EMPTY,
+  } = params as Partial<Pick<domain.Chat.PolylogueSchema, "name" | "link">>;
 
   return {
     id_chat: id,
     name_chat: name,
     link,
     rk_type_chat: type,
-    users: participants,
+    users: participants.map(mapUser),
   };
 }
 

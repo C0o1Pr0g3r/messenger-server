@@ -3,6 +3,7 @@ import { z } from "zod";
 import { Chat, User } from "~/domain";
 
 const zBaseOut = z.object({
+  authorId: User.zSchema.shape.id,
   participants: z.array(
     User.zSchema.pick({
       id: true,
