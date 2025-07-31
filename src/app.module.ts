@@ -10,6 +10,7 @@ import { AppController } from "./app.controller";
 import { AppService } from "./app.service";
 import { AuthModule } from "./features/auth/module";
 import { ChatModule } from "./features/chat/module";
+import { MessageModule } from "./features/message/module";
 import { UserController } from "./features/user/controller";
 import { UserModule } from "./features/user/module";
 import { Config, Typeorm } from "./infra";
@@ -31,6 +32,7 @@ expand(config());
     UserModule,
     AuthModule,
     ChatModule,
+    MessageModule,
   ],
   controllers: [AppController, UserController],
   providers: [
