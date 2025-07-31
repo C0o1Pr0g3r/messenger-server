@@ -3,6 +3,7 @@ import {
   Body,
   ConflictException,
   Controller,
+  Get,
   InternalServerErrorException,
   Post,
   UseGuards,
@@ -13,7 +14,7 @@ import { z } from "zod";
 import { ChatService, ChatServiceIos } from "../service";
 import { InterlocutorNotFoundError } from "../service/error";
 
-import { Common, Create } from "./ios";
+import { Common, Create, GetMine } from "./ios";
 
 import { UniqueKeyViolationError } from "~/app";
 import { Fp, Str } from "~/common";
@@ -69,6 +70,20 @@ class ChatController {
 
       throw error;
     }
+  }
+
+  @Get("getchats")
+  @UseGuards(AuthGuard)
+  async getByEmailOrNickname(
+    @CurrentUser() user: RequestWithUser["user"],
+  ): Promise<GetMine.ResBody> {
+    return Fp.throwify(
+      await function_.pipe(
+        this.chatService.getMine({
+          userId: user.id,
+        }),
+      )(),
+    ).map(mapChat);
   }
 }
 

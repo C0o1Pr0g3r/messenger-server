@@ -1,10 +1,11 @@
 import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { function as function_, taskEither } from "fp-ts";
+import { either, function as function_, taskEither } from "fp-ts";
+import { TaskEither } from "fp-ts/lib/TaskEither";
 import { DataSource, In, Repository } from "typeorm";
 
 import { InterlocutorNotFoundError } from "./error";
-import { Common, Create } from "./ios";
+import { Common, Create, GetMine } from "./ios";
 
 import { UniqueKeyViolationError } from "~/app";
 import { File, Fp, Generator, ImpossibleError, UnexpectedError } from "~/common";
@@ -133,37 +134,7 @@ class ChatService {
                     }),
                   (reason) => new UnexpectedError(reason),
                 ),
-                taskEither.flatMap((participants) => {
-                  const { id } = chat;
-                  const baseChat = {
-                    id,
-                    participants,
-                  };
-
-                  return (
-                    chat.type === domain.Chat.Attribute.Type.Schema.dialogue
-                      ? taskEither.right({
-                          ...baseChat,
-                          type: domain.Chat.Attribute.Type.Schema.dialogue,
-                        })
-                      : Fp.iife(() => {
-                          const { name, link } = chat;
-                          if (!(typeof name === "string" && typeof link === "string"))
-                            return taskEither.left(
-                              new ImpossibleError("Polylogue chat must have a name and a link", {
-                                factualData: chat,
-                              }),
-                            );
-
-                          return taskEither.right({
-                            ...baseChat,
-                            name,
-                            link,
-                            type: domain.Chat.Attribute.Type.Schema.polylogue,
-                          });
-                        })
-                  ) satisfies ReturnType<InstanceType<typeof ChatService>["create"]>;
-                }),
+                taskEither.flatMap((participants) => mapChat(chat, participants)),
               ),
             ),
           )();
@@ -172,8 +143,88 @@ class ChatService {
       taskEither.flatMap(taskEither.fromEither),
     );
   }
+
+  getMine({
+    userId,
+  }: GetMine.In): taskEither.TaskEither<UnexpectedError | ImpossibleError, GetMine.Out> {
+    return function_.pipe(
+      taskEither.tryCatch(
+        () =>
+          this.chatRepository.find({
+            where: [
+              {
+                author: {
+                  id: userId,
+                },
+              },
+              {
+                participants: {
+                  userId,
+                },
+              },
+            ],
+            relations: {
+              author: true,
+              participants: {
+                user: true,
+              },
+            },
+          }),
+        (reason) => new UnexpectedError(reason),
+      ),
+      taskEither.flatMap((chatModels) => {
+        const eitherChats = chatModels.map(({ author, participants, ...chatModel }) =>
+          mapChat(chatModel, [author, ...participants.map(({ user }) => user)]),
+        );
+
+        type Chat = Extract<
+          Awaited<ReturnType<(typeof eitherChats)[number]>>,
+          either.Right<unknown>
+        >["right"];
+        return taskEither.sequenceArray(eitherChats) as taskEither.TaskEither<
+          ImpossibleError,
+          Chat[]
+        >;
+      }),
+    );
+  }
 }
 
 const CHAT_LINK_LENGTH = 16;
+
+function mapChat(
+  chatModel: Omit<Typeorm.Model.Chat, "author" | "participants">,
+  participantModels: Typeorm.Model.User[],
+) {
+  const { id } = chatModel;
+  const baseChat = {
+    id,
+    participants: participantModels,
+  };
+
+  return (
+    chatModel.type === domain.Chat.Attribute.Type.Schema.dialogue
+      ? taskEither.right({
+          ...baseChat,
+          type: domain.Chat.Attribute.Type.Schema.dialogue,
+        })
+      : Fp.iife(() => {
+          const { name, link } = chatModel;
+          if (!(typeof name === "string" && typeof link === "string"))
+            return taskEither.left(
+              new ImpossibleError("Polylogue chat must have a name and a link", {
+                factualData: chatModel,
+              }),
+            );
+
+          return taskEither.right({
+            ...baseChat,
+            name,
+            link,
+            type: domain.Chat.Attribute.Type.Schema.polylogue,
+          });
+        })
+  ) satisfies TaskEither<ImpossibleError, Common.Out>;
+}
 
 export { CHAT_LINK_LENGTH, ChatService };
