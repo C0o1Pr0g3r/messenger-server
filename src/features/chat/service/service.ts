@@ -2,12 +2,12 @@ import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { either, function as function_, taskEither } from "fp-ts";
 import { TaskEither } from "fp-ts/lib/TaskEither";
-import { DataSource, In, Repository } from "typeorm";
+import { DataSource, DeepPartial, In, Repository } from "typeorm";
 
-import { InterlocutorNotFoundError } from "./error";
-import { Common, Create, GetMine } from "./ios";
+import { InterlocutorNotFoundError, ProhibitedOperationError } from "./error";
+import { AddUserToChat, Common, Create, GetMine } from "./ios";
 
-import { UniqueKeyViolationError } from "~/app";
+import { NotFoundError, UniqueKeyViolationError } from "~/app";
 import { File, Fp, Generator, ImpossibleError, UnexpectedError } from "~/common";
 import * as domain from "~/domain";
 import { Typeorm } from "~/infra";
@@ -18,6 +18,8 @@ class ChatService {
   constructor(
     @InjectRepository(Typeorm.Model.Chat)
     private readonly chatRepository: Repository<Typeorm.Model.Chat>,
+    @InjectRepository(Typeorm.Model.ChatParticipant)
+    private readonly chatParticipantRepository: Repository<Typeorm.Model.ChatParticipant>,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -186,6 +188,82 @@ class ChatService {
           Chat[]
         >;
       }),
+    );
+  }
+
+  addUserToChat({
+    initiatorId,
+    userId,
+    chatId,
+  }: AddUserToChat.In): taskEither.TaskEither<
+    | UnexpectedError
+    | UniqueKeyViolationError
+    | InterlocutorNotFoundError
+    | ProhibitedOperationError,
+    void
+  > {
+    return function_.pipe(
+      taskEither.tryCatch(
+        () =>
+          this.chatRepository.findOne({
+            where: {
+              id: chatId,
+            },
+            relations: {
+              author: true,
+              participants: true,
+            },
+          }),
+        (reason) => new UnexpectedError(reason),
+      ),
+      taskEither.flatMap(taskEither.fromNullable(new NotFoundError())),
+      taskEither.flatMap(
+        taskEither.fromPredicate(
+          (chat) => chat.type === domain.Chat.Attribute.Type.Schema.polylogue,
+          () => new ProhibitedOperationError("You can only add users to a group chat."),
+        ),
+      ),
+      taskEither.flatMap(
+        taskEither.fromPredicate(
+          (chat) =>
+            chat.author.id === initiatorId ||
+            chat.participants.some(({ userId }) => userId === initiatorId),
+          () =>
+            new ProhibitedOperationError(
+              "You are not a member of this chat, so you cannot add a user to it.",
+            ),
+        ),
+      ),
+      taskEither.flatMap(() =>
+        function_.pipe(
+          taskEither.tryCatch(
+            () =>
+              this.chatParticipantRepository.save(
+                Object.assign(this.chatParticipantRepository.create(), {
+                  user: {
+                    id: userId,
+                  },
+                  chat: {
+                    id: chatId,
+                  },
+                } satisfies DeepPartial<ReturnType<typeof this.chatParticipantRepository.create>>),
+              ),
+            (reason) => {
+              if (
+                Typeorm.isUniqueKeyViolationError(reason) &&
+                reason.driverError.constraint ===
+                  Typeorm.Model.CHAT_PARTICIPANT_META.constraints.primaryKey()
+              )
+                return new UniqueKeyViolationError(domain.Chat.Constraint.UNIQUE_CHAT_PARTICIPANT);
+
+              if (isForeignKeyViolationError(reason)) return new InterlocutorNotFoundError();
+
+              return new UnexpectedError(reason);
+            },
+          ),
+          taskEither.map(() => void 0),
+        ),
+      ),
     );
   }
 }

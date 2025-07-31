@@ -12,9 +12,9 @@ import { function as function_, taskEither } from "fp-ts";
 import { z } from "zod";
 
 import { ChatService, ChatServiceIos } from "../service";
-import { InterlocutorNotFoundError } from "../service/error";
+import { InterlocutorNotFoundError, ProhibitedOperationError } from "../service/error";
 
-import { Common, Create, GetMine } from "./ios";
+import { AddUserToChat, Common, Create, GetMine } from "./ios";
 
 import { UniqueKeyViolationError } from "~/app";
 import { Fp, Str } from "~/common";
@@ -84,6 +84,44 @@ class ChatController {
         }),
       )(),
     ).map(mapChat);
+  }
+
+  @Post("addusertochat")
+  @UseGuards(AuthGuard)
+  async addUserToChat(
+    @Body() { id_user, id_chat }: AddUserToChat.ReqBody,
+    @CurrentUser() user: RequestWithUser["user"],
+  ): Promise<void> {
+    try {
+      Fp.throwify(
+        await function_.pipe(
+          this.chatService.addUserToChat({
+            initiatorId: user.id,
+            userId: id_user,
+            chatId: id_chat,
+          }),
+          taskEither.mapLeft((error) => {
+            if (
+              error instanceof UniqueKeyViolationError &&
+              error.constraintName === domain.Chat.Constraint.UNIQUE_CHAT_PARTICIPANT
+            )
+              return new ConflictException("This user is already in the chat.");
+
+            if (error instanceof InterlocutorNotFoundError)
+              return new BadRequestException("User with this ID not found.");
+
+            if (error instanceof ProhibitedOperationError)
+              return new BadRequestException(error.explanation);
+
+            return new InternalServerErrorException();
+          }),
+        )(),
+      );
+    } catch (error) {
+      if (error instanceof z.ZodError) throw new BadRequestException(error);
+
+      throw error;
+    }
   }
 }
 

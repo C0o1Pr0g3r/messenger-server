@@ -9,7 +9,10 @@ import { ChatService } from "./service";
 import { Typeorm } from "~/infra";
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Typeorm.Model.Chat]), AuthModule],
+  imports: [
+    TypeOrmModule.forFeature([Typeorm.Model.Chat, Typeorm.Model.ChatParticipant]),
+    AuthModule,
+  ],
   providers: [ChatService],
   controllers: [ChatController],
 })
