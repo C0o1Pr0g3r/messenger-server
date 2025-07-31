@@ -3,9 +3,10 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { function as function_, taskEither } from "fp-ts";
 import { Repository } from "typeorm";
 
-import { GetMine } from "./ios";
+import { GetMessagesByChatId, GetMine } from "./ios";
 
-import { ImpossibleError, UnexpectedError } from "~/common";
+import { NotFoundError } from "~/app";
+import { UnexpectedError } from "~/common";
 import { Typeorm } from "~/infra";
 
 @Injectable()
@@ -15,9 +16,7 @@ class MessageService {
     private readonly chatRepository: Repository<Typeorm.Model.Chat>,
   ) {}
 
-  getMine({
-    userId,
-  }: GetMine.In): taskEither.TaskEither<UnexpectedError | ImpossibleError, GetMine.Out> {
+  getMine({ userId }: GetMine.In): taskEither.TaskEither<UnexpectedError, GetMine.Out> {
     return function_.pipe(
       taskEither.tryCatch(
         () =>
@@ -55,6 +54,57 @@ class MessageService {
             ),
           )
           .flat(),
+      ),
+    );
+  }
+
+  getMessagesByChatId({
+    userId,
+    chatId,
+  }: GetMessagesByChatId.In): taskEither.TaskEither<
+    UnexpectedError | NotFoundError,
+    GetMessagesByChatId.Out
+  > {
+    const baseWhere: NonNullable<Parameters<typeof this.chatRepository.findOne>[0]>["where"] = {
+      id: chatId,
+    };
+
+    return function_.pipe(
+      taskEither.tryCatch(
+        () =>
+          this.chatRepository.findOne({
+            where: [
+              {
+                ...baseWhere,
+                author: {
+                  id: userId,
+                },
+              },
+              {
+                ...baseWhere,
+                participants: {
+                  userId,
+                },
+              },
+            ],
+            relations: {
+              messages: {
+                author: true,
+              },
+            },
+          }),
+        (reason) => new UnexpectedError(reason),
+      ),
+      taskEither.flatMap(taskEither.fromNullable(new NotFoundError())),
+      taskEither.map((chatModel) =>
+        chatModel.messages.map((message) =>
+          mapMessage({
+            ...message,
+            chat: {
+              id: chatModel.id,
+            },
+          }),
+        ),
       ),
     );
   }
