@@ -3,7 +3,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { function as function_, taskEither } from "fp-ts";
 import { DeepPartial, Repository } from "typeorm";
 
-import { Common, Create, Edit, GetMessagesByChatId, GetMine } from "./ios";
+import { Common, Create, Delete, Edit, GetMessagesByChatId, GetMine } from "./ios";
 
 import { NotFoundError } from "~/app";
 import { UnexpectedError } from "~/common";
@@ -216,6 +216,31 @@ class MessageService {
           ),
         ),
       ),
+    );
+  }
+
+  delete({
+    id,
+    initiatorId,
+  }: Delete.In): taskEither.TaskEither<UnexpectedError | NotFoundError, true> {
+    return function_.pipe(
+      taskEither.tryCatch(
+        () =>
+          this.messageRepository.delete({
+            id,
+            author: {
+              id: initiatorId,
+            },
+          }),
+        (reason) => new UnexpectedError(reason),
+      ),
+      taskEither.flatMap(
+        taskEither.fromPredicate(
+          ({ affected }) => affected === 1,
+          () => new NotFoundError(),
+        ),
+      ),
+      taskEither.map(() => true),
     );
   }
 }

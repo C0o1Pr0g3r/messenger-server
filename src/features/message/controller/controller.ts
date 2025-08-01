@@ -12,7 +12,7 @@ import { function as function_, taskEither } from "fp-ts";
 
 import { MessageService, MessageServiceIos } from "../service";
 
-import { Common, Create, Edit, GetMessagesByChatId, GetMine } from "./ios";
+import { Common, Create, Delete, Edit, GetMessagesByChatId, GetMine } from "./ios";
 
 import { NotFoundError } from "~/app";
 import { Fp } from "~/common";
@@ -100,12 +100,34 @@ class MessageController {
           }),
           taskEither.mapLeft((error) => {
             if (error instanceof NotFoundError)
-              return new NotFoundException("Could not find a chat with this ID.");
+              return new NotFoundException("Message with this ID not found.");
 
             return new InternalServerErrorException();
           }),
         )(),
       ),
+    );
+  }
+
+  @Post("deletemessage")
+  @UseGuards(AuthGuard)
+  async delete(
+    @Body() { id_message }: Delete.ReqBody,
+    @CurrentUser() user: RequestWithUser["user"],
+  ): Promise<true> {
+    return Fp.throwify(
+      await function_.pipe(
+        this.messageService.delete({
+          id: id_message,
+          initiatorId: user.id,
+        }),
+        taskEither.mapLeft((error) => {
+          if (error instanceof NotFoundError)
+            return new NotFoundException("Message with this ID not found.");
+
+          return new InternalServerErrorException();
+        }),
+      )(),
     );
   }
 }
