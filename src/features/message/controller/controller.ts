@@ -12,7 +12,7 @@ import { function as function_, taskEither } from "fp-ts";
 
 import { MessageService, MessageServiceIos } from "../service";
 
-import { Common, Create, GetMessagesByChatId, GetMine } from "./ios";
+import { Common, Create, Edit, GetMessagesByChatId, GetMine } from "./ios";
 
 import { NotFoundError } from "~/app";
 import { Fp } from "~/common";
@@ -72,6 +72,31 @@ class MessageController {
             text: text_message,
             authorId: user.id,
             chatId: id_chat,
+          }),
+          taskEither.mapLeft((error) => {
+            if (error instanceof NotFoundError)
+              return new NotFoundException("Could not find a chat with this ID.");
+
+            return new InternalServerErrorException();
+          }),
+        )(),
+      ),
+    );
+  }
+
+  @Post("editmessage")
+  @UseGuards(AuthGuard)
+  async edit(
+    @Body() { id_message, text_message }: Edit.ReqBody,
+    @CurrentUser() user: RequestWithUser["user"],
+  ): Promise<Common.ResBody> {
+    return mapMessage(
+      Fp.throwify(
+        await function_.pipe(
+          this.messageService.edit({
+            id: id_message,
+            text: text_message,
+            initiatorId: user.id,
           }),
           taskEither.mapLeft((error) => {
             if (error instanceof NotFoundError)

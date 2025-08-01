@@ -3,7 +3,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { function as function_, taskEither } from "fp-ts";
 import { DeepPartial, Repository } from "typeorm";
 
-import { Common, Create, GetMessagesByChatId, GetMine } from "./ios";
+import { Common, Create, Edit, GetMessagesByChatId, GetMine } from "./ios";
 
 import { NotFoundError } from "~/app";
 import { UnexpectedError } from "~/common";
@@ -47,11 +47,9 @@ class MessageService {
         chatModels
           .map(({ id, messages }) =>
             messages.map((message) =>
-              mapMessage({
-                ...message,
-                chat: {
-                  id,
-                },
+              mapMessage(message, {
+                authorId: message.author.id,
+                chatId: id,
               }),
             ),
           )
@@ -100,11 +98,9 @@ class MessageService {
       taskEither.flatMap(taskEither.fromNullable(new NotFoundError())),
       taskEither.map((chatModel) =>
         chatModel.messages.map((message) =>
-          mapMessage({
-            ...message,
-            chat: {
-              id: chatModel.id,
-            },
+          mapMessage(message, {
+            authorId: message.author.id,
+            chatId,
           }),
         ),
       ),
@@ -162,28 +158,82 @@ class MessageService {
         ),
       ),
       taskEither.map((message) =>
-        mapMessage({
-          ...message,
-          chat: {
-            id: chatId,
-          },
+        mapMessage(message, {
+          authorId,
+          chatId,
         }),
+      ),
+    );
+  }
+
+  edit({
+    id,
+    text,
+    initiatorId,
+  }: Edit.In): taskEither.TaskEither<UnexpectedError | NotFoundError, Common.Out> {
+    return function_.pipe(
+      taskEither.tryCatch(
+        () =>
+          this.messageRepository.update(
+            {
+              id,
+              author: {
+                id: initiatorId,
+              },
+            },
+            {
+              text,
+            },
+          ),
+        (reason) => new UnexpectedError(reason),
+      ),
+      taskEither.flatMap(
+        taskEither.fromPredicate(
+          ({ affected }) => affected === 1,
+          () => new NotFoundError(),
+        ),
+      ),
+      taskEither.flatMap(() =>
+        function_.pipe(
+          taskEither.tryCatch(
+            () =>
+              this.messageRepository.findOne({
+                where: {
+                  id,
+                },
+                relations: {
+                  chat: true,
+                },
+              }),
+            (reason) => new UnexpectedError(reason),
+          ),
+          taskEither.flatMap(taskEither.fromNullable(new NotFoundError())),
+          taskEither.map((message) =>
+            mapMessage(message, {
+              authorId: initiatorId,
+              chatId: message.chat.id,
+            }),
+          ),
+        ),
       ),
     );
   }
 }
 
 function mapMessage(
-  messageModel: Omit<Typeorm.Model.Message, "chat"> & {
-    chat: Pick<Typeorm.Model.Chat, "id">;
+  messageModel: Omit<Typeorm.Model.Message, "author" | "chat">,
+  {
+    authorId,
+    chatId,
+  }: {
+    authorId: Typeorm.Model.Message["author"]["id"];
+    chatId: Typeorm.Model.Message["chat"]["id"];
   },
 ) {
   const {
     id,
     text,
     lifeCycleDates: { createdAt },
-    author: { id: authorId },
-    chat: { id: chatId },
   } = messageModel;
 
   return {
