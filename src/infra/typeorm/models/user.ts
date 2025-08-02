@@ -4,6 +4,7 @@ import { toColumnOptions } from "../utils";
 
 import { Chat } from "./chat";
 import { ChatParticipant } from "./chat-participant";
+import { ForwardedMessage } from "./forwarded-message";
 import { LifeCycleDates } from "./life-cycle-dates";
 import { Message } from "./message";
 
@@ -59,6 +60,9 @@ class User {
 
   @OneToMany(() => ChatParticipant, ({ user }) => user)
   participantOfChats!: ChatParticipant[];
+
+  @OneToMany(() => ForwardedMessage, ({ forwardedBy }) => forwardedBy)
+  forwardedMessages!: ForwardedMessage[];
 }
 
 export { User, META as USER_META };

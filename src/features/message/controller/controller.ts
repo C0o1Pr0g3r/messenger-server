@@ -12,10 +12,11 @@ import { function as function_, taskEither } from "fp-ts";
 
 import { MessageService, MessageServiceIos } from "../service";
 
-import { Common, Create, Delete, Edit, GetMessagesByChatId, GetMine } from "./ios";
+import { Common, Create, Delete, Edit, Forward, GetMessagesByChatId, GetMine } from "./ios";
 
-import { NotFoundError } from "~/app";
+import { ForeignKeyViolationError, NotFoundError } from "~/app";
 import { Fp } from "~/common";
+import * as domain from "~/domain";
 import { AuthGuard } from "~/features/auth/auth.guard";
 import { CurrentUser, RequestWithUser } from "~/features/auth/current-user.decorator";
 
@@ -124,6 +125,37 @@ class MessageController {
         taskEither.mapLeft((error) => {
           if (error instanceof NotFoundError)
             return new NotFoundException("Message with this ID not found.");
+
+          return new InternalServerErrorException();
+        }),
+      )(),
+    );
+  }
+
+  @Post("resendmessage")
+  @UseGuards(AuthGuard)
+  async forward(
+    @Body() { id_message, rk_chat }: Forward.ReqBody,
+    @CurrentUser() user: RequestWithUser["user"],
+  ): Promise<true> {
+    return Fp.throwify(
+      await function_.pipe(
+        this.messageService.forward({
+          messageId: id_message,
+          forwardedById: user.id,
+          chatId: rk_chat,
+        }),
+        taskEither.mapLeft((error) => {
+          if (error instanceof ForeignKeyViolationError) {
+            switch (error.constraintName) {
+              case domain.Message.ForwardedMessageConstraint.MESSAGE:
+                return new NotFoundException("Message with this ID not found.");
+              case domain.Message.ForwardedMessageConstraint.FORWARDED_BY:
+                return new NotFoundException("Your account was not found.");
+              case domain.Message.ForwardedMessageConstraint.CHAT:
+                return new NotFoundException("Chat with this ID not found.");
+            }
+          }
 
           return new InternalServerErrorException();
         }),

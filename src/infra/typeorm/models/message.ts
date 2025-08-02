@@ -1,8 +1,9 @@
-import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Column, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn } from "typeorm";
 
 import { toColumnOptions } from "../utils";
 
 import { Chat } from "./chat";
+import { ForwardedMessage } from "./forwarded-message";
 import { LifeCycleDates } from "./life-cycle-dates";
 import { User } from "./user";
 
@@ -40,6 +41,9 @@ class Message {
     name: "chat_id",
   })
   chat!: Chat;
+
+  @OneToMany(() => ForwardedMessage, ({ message }) => message)
+  forwarding!: ForwardedMessage[];
 }
 
 export { Message, META as MESSAGE_META };

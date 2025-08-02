@@ -3,10 +3,11 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { function as function_, taskEither } from "fp-ts";
 import { DeepPartial, Repository } from "typeorm";
 
-import { Common, Create, Delete, Edit, GetMessagesByChatId, GetMine } from "./ios";
+import { Common, Create, Delete, Edit, Forward, GetMessagesByChatId, GetMine } from "./ios";
 
-import { NotFoundError } from "~/app";
+import { ForeignKeyViolationError, NotFoundError } from "~/app";
 import { UnexpectedError } from "~/common";
+import * as domain from "~/domain";
 import { Typeorm } from "~/infra";
 
 @Injectable()
@@ -16,6 +17,8 @@ class MessageService {
     private readonly chatRepository: Repository<Typeorm.Model.Chat>,
     @InjectRepository(Typeorm.Model.Message)
     private readonly messageRepository: Repository<Typeorm.Model.Message>,
+    @InjectRepository(Typeorm.Model.ForwardedMessage)
+    private readonly forwardedMessageRepository: Repository<Typeorm.Model.ForwardedMessage>,
   ) {}
 
   getMine({ userId }: GetMine.In): taskEither.TaskEither<UnexpectedError, GetMine.Out> {
@@ -30,6 +33,11 @@ class MessageService {
                 },
               },
               {
+                interlocutor: {
+                  id: userId,
+                },
+              },
+              {
                 participants: {
                   userId,
                 },
@@ -39,22 +47,16 @@ class MessageService {
               messages: {
                 author: true,
               },
+              forwardedMessages: {
+                message: {
+                  author: true,
+                },
+              },
             },
           }),
         (reason) => new UnexpectedError(reason),
       ),
-      taskEither.map((chatModels) =>
-        chatModels
-          .map(({ id, messages }) =>
-            messages.map((message) =>
-              mapMessage(message, {
-                authorId: message.author.id,
-                chatId: id,
-              }),
-            ),
-          )
-          .flat(),
-      ),
+      taskEither.map((chatModels) => chatModels.map(mapChat).flat()),
     );
   }
 
@@ -91,19 +93,17 @@ class MessageService {
               messages: {
                 author: true,
               },
+              forwardedMessages: {
+                message: {
+                  author: true,
+                },
+              },
             },
           }),
         (reason) => new UnexpectedError(reason),
       ),
       taskEither.flatMap(taskEither.fromNullable(new NotFoundError())),
-      taskEither.map((chatModel) =>
-        chatModel.messages.map((message) =>
-          mapMessage(message, {
-            authorId: message.author.id,
-            chatId,
-          }),
-        ),
-      ),
+      taskEither.map(mapChat),
     );
   }
 
@@ -124,6 +124,12 @@ class MessageService {
               {
                 ...baseWhere,
                 author: {
+                  id: authorId,
+                },
+              },
+              {
+                ...baseWhere,
+                interlocutor: {
                   id: authorId,
                 },
               },
@@ -243,6 +249,167 @@ class MessageService {
       taskEither.map(() => true),
     );
   }
+
+  forward({
+    messageId,
+    forwardedById,
+    chatId,
+  }: Forward.In): taskEither.TaskEither<UnexpectedError | ForeignKeyViolationError, true> {
+    return function_.pipe(
+      taskEither.tryCatch(
+        () => {
+          const baseWhere: NonNullable<
+            Parameters<typeof this.messageRepository.findOne>[0]
+          >["where"] = {
+            id: messageId,
+          };
+
+          return this.messageRepository.findOne({
+            where: [
+              {
+                ...baseWhere,
+                chat: {
+                  type: domain.Chat.Attribute.Type.Schema.dialogue,
+                  author: {
+                    id: forwardedById,
+                  },
+                },
+              },
+              {
+                ...baseWhere,
+                chat: {
+                  type: domain.Chat.Attribute.Type.Schema.dialogue,
+                  interlocutor: {
+                    id: forwardedById,
+                  },
+                },
+              },
+              {
+                ...baseWhere,
+                chat: {
+                  type: domain.Chat.Attribute.Type.Schema.polylogue,
+                  participants: {
+                    userId: forwardedById,
+                  },
+                },
+              },
+            ],
+          });
+        },
+        (reason) => new UnexpectedError(reason),
+      ),
+      taskEither.flatMap(
+        taskEither.fromNullable(
+          new ForeignKeyViolationError(domain.Message.ForwardedMessageConstraint.MESSAGE),
+        ),
+      ),
+      taskEither.flatMap(() =>
+        function_.pipe(
+          taskEither.tryCatch(
+            () => {
+              const baseWhere: NonNullable<
+                Parameters<typeof this.chatRepository.findOne>[0]
+              >["where"] = {
+                id: chatId,
+              };
+
+              return this.chatRepository.findOne({
+                where: [
+                  {
+                    ...baseWhere,
+                    type: domain.Chat.Attribute.Type.Schema.dialogue,
+                    author: {
+                      id: forwardedById,
+                    },
+                  },
+                  {
+                    ...baseWhere,
+                    type: domain.Chat.Attribute.Type.Schema.dialogue,
+                    interlocutor: {
+                      id: forwardedById,
+                    },
+                  },
+                  {
+                    ...baseWhere,
+                    type: domain.Chat.Attribute.Type.Schema.polylogue,
+                    participants: {
+                      userId: forwardedById,
+                    },
+                  },
+                ],
+              });
+            },
+            (reason) => new UnexpectedError(reason),
+          ),
+          taskEither.flatMap(
+            taskEither.fromNullable(
+              new ForeignKeyViolationError(domain.Message.ForwardedMessageConstraint.CHAT),
+            ),
+          ),
+        ),
+      ),
+      taskEither.flatMap(() =>
+        function_.pipe(
+          taskEither.tryCatch(
+            () =>
+              this.forwardedMessageRepository.save(
+                Object.assign(this.forwardedMessageRepository.create(), {
+                  message: {
+                    id: messageId,
+                  },
+                  forwardedBy: {
+                    id: forwardedById,
+                  },
+                  chat: {
+                    id: chatId,
+                  },
+                } satisfies DeepPartial<ReturnType<typeof this.forwardedMessageRepository.create>>),
+              ),
+            (reason) => {
+              if (Typeorm.isForeignKeyViolationError(reason)) {
+                const { constraint } = reason.driverError;
+
+                switch (constraint) {
+                  case Typeorm.Model.FORWARDED_MESSAGE_META.constraints.messageId():
+                    return new ForeignKeyViolationError(
+                      domain.Message.ForwardedMessageConstraint.MESSAGE,
+                    );
+                  case Typeorm.Model.FORWARDED_MESSAGE_META.constraints.forwardedById():
+                    return new ForeignKeyViolationError(
+                      domain.Message.ForwardedMessageConstraint.FORWARDED_BY,
+                    );
+                  case Typeorm.Model.FORWARDED_MESSAGE_META.constraints.chatId():
+                    return new ForeignKeyViolationError(
+                      domain.Message.ForwardedMessageConstraint.CHAT,
+                    );
+                }
+              }
+
+              return new UnexpectedError(reason);
+            },
+          ),
+        ),
+      ),
+      taskEither.map(() => true),
+    );
+  }
+}
+
+function mapChat({ id, messages, forwardedMessages }: Typeorm.Model.Chat) {
+  return [...messages, ...forwardedMessages]
+    .sort(
+      (
+        { lifeCycleDates: { createdAt: aCreatedAt } },
+        { lifeCycleDates: { createdAt: bCreatedAt } },
+      ) => aCreatedAt.getTime() - bCreatedAt.getTime(),
+    )
+    .map((message) => (message instanceof Typeorm.Model.Message ? message : message.message))
+    .map((message) =>
+      mapMessage(message, {
+        authorId: message.author.id,
+        chatId: id,
+      }),
+    );
 }
 
 function mapMessage(

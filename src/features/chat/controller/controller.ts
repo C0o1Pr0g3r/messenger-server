@@ -64,6 +64,7 @@ class ChatController {
             }),
           )(),
         ),
+        user.id,
       );
     } catch (error) {
       if (error instanceof z.ZodError) throw new BadRequestException(error);
@@ -83,7 +84,7 @@ class ChatController {
           userId: user.id,
         }),
       )(),
-    ).map(mapChat);
+    ).map((chat) => mapChat(chat, user.id));
   }
 
   @Post("addusertochat")
@@ -139,9 +140,12 @@ function mapUser({
   };
 }
 
-function mapChat({ id, type, participants, ...params }: ChatServiceIos.Common.Out) {
+function mapChat(
+  { id, type, participants, ...params }: ChatServiceIos.Common.Out,
+  userId: domain.User.Schema["id"],
+) {
   const {
-    name = participants.find(({ id }) => id !== params.authorId)?.nickname ?? Str.EMPTY,
+    name = participants.find(({ id }) => id !== userId)?.nickname ?? Str.EMPTY,
     link = Str.EMPTY,
   } = params as Partial<Pick<domain.Chat.PolylogueSchema, "name" | "link">>;
 

@@ -11,6 +11,7 @@ import {
 import { toColumnOptions } from "../utils";
 
 import { ChatParticipant } from "./chat-participant";
+import { ForwardedMessage } from "./forwarded-message";
 import { LifeCycleDates } from "./life-cycle-dates";
 import { Message } from "./message";
 import { User } from "./user";
@@ -71,6 +72,9 @@ class Chat {
 
   @OneToMany(() => Message, ({ chat }) => chat)
   messages!: Message[];
+
+  @OneToMany(() => ForwardedMessage, ({ chat }) => chat)
+  forwardedMessages!: ForwardedMessage[];
 
   @OneToMany(() => ChatParticipant, ({ chat }) => chat)
   participants!: ChatParticipant[];
