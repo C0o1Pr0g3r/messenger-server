@@ -52,12 +52,19 @@ class ChatService {
                   > & {
                     type: domain.Chat.Attribute.Type.Schema;
                   };
+                  const interlocutor = Object.assign(userRepository.create(), {
+                    id: interlocutorId,
+                  } satisfies Partial<ReturnType<typeof userRepository.create>>);
                   const data = {
                     ...rest,
                     type,
                     author,
+                    interlocutor,
                   };
-                  return taskEither.right<UnexpectedError, typeof data>(data);
+                  return taskEither.right<
+                    UnexpectedError,
+                    Partial<ReturnType<typeof chatRepository.create>>
+                  >(data);
                 })
               : Fp.iife(() => {
                   const { type, ...rest } = params as Omit<typeof params, "type"> & {
@@ -65,12 +72,15 @@ class ChatService {
                   };
                   return function_.pipe(
                     Generator.safeUid(File.Base64.getNumberOfBytesToStore(CHAT_LINK_LENGTH)),
-                    taskEither.map((link) => ({
-                      ...rest,
-                      type,
-                      link,
-                      author,
-                    })),
+                    taskEither.map(
+                      (link) =>
+                        ({
+                          ...rest,
+                          type,
+                          link,
+                          author,
+                        }) as Partial<ReturnType<typeof chatRepository.create>>,
+                    ),
                   );
                 }),
             taskEither.flatMap((chatCreationData) =>
@@ -99,13 +109,17 @@ class ChatService {
             ),
             taskEither.flatMap((chat) =>
               params.type === domain.Chat.Attribute.Type.zSchema.Enum.dialogue
-                ? function_.pipe(
+                ? taskEither.right({
+                    chat,
+                    participantIds: [author.id, params.interlocutorId],
+                  })
+                : function_.pipe(
                     taskEither.tryCatch(
                       () =>
                         chatParticipantRepository.save(
                           Object.assign(chatParticipantRepository.create(), {
                             chatId: chat.id,
-                            userId: params.interlocutorId,
+                            userId: author.id,
                           } satisfies Partial<ReturnType<typeof chatParticipantRepository.create>>),
                         ),
                       (reason) => {
@@ -117,21 +131,17 @@ class ChatService {
                     ),
                     taskEither.map(() => ({
                       chat,
-                      participantIDs: [author.id, params.interlocutorId],
+                      participantIds: [author.id],
                     })),
-                  )
-                : taskEither.right({
-                    chat,
-                    participantIDs: [author.id],
-                  }),
+                  ),
             ),
-            taskEither.flatMap(({ chat, participantIDs }) =>
+            taskEither.flatMap(({ chat, participantIds }) =>
               function_.pipe(
                 taskEither.tryCatch(
                   () =>
                     userRepository.find({
                       where: {
-                        id: In(participantIDs),
+                        id: In(participantIds),
                       },
                     }),
                   (reason) => new UnexpectedError(reason),
@@ -160,6 +170,11 @@ class ChatService {
                 },
               },
               {
+                interlocutor: {
+                  id: userId,
+                },
+              },
+              {
                 participants: {
                   userId,
                 },
@@ -167,6 +182,7 @@ class ChatService {
             ],
             relations: {
               author: true,
+              interlocutor: true,
               participants: {
                 user: true,
               },
@@ -176,7 +192,12 @@ class ChatService {
       ),
       taskEither.flatMap((chatModels) => {
         const eitherChats = chatModels.map(({ participants, ...chatModel }) =>
-          mapChat(chatModel, [chatModel.author, ...participants.map(({ user }) => user)]),
+          mapChat(
+            chatModel,
+            chatModel.type === domain.Chat.Attribute.Type.zSchema.Enum.dialogue
+              ? [chatModel.author, chatModel.interlocutor]
+              : participants.map(({ user }) => user),
+          ),
         );
 
         type Chat = Extract<
@@ -225,9 +246,7 @@ class ChatService {
       ),
       taskEither.flatMap(
         taskEither.fromPredicate(
-          (chat) =>
-            chat.author.id === initiatorId ||
-            chat.participants.some(({ userId }) => userId === initiatorId),
+          (chat) => chat.participants.some(({ userId }) => userId === initiatorId),
           () =>
             new ProhibitedOperationError(
               "You are not a member of this chat, so you cannot add a user to it.",

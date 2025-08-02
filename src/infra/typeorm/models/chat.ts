@@ -63,6 +63,12 @@ class Chat {
   })
   author!: User;
 
+  @ManyToOne(() => User, ({ interlocutorOfChats }) => interlocutorOfChats)
+  @JoinColumn({
+    name: "interlocutor_id",
+  })
+  interlocutor!: User;
+
   @OneToMany(() => Message, ({ chat }) => chat)
   messages!: Message[];
 

@@ -51,6 +51,9 @@ class User {
   @OneToMany(() => Chat, ({ author }) => author)
   createdChats!: Chat[];
 
+  @OneToMany(() => Chat, ({ interlocutor }) => interlocutor)
+  interlocutorOfChats!: Chat[];
+
   @OneToMany(() => Message, ({ author }) => author)
   createdMessages!: Message[];
 
