@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { APP_PIPE } from "@nestjs/core";
+import { EventEmitterModule } from "@nestjs/event-emitter";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { config } from "dotenv";
 import { expand } from "dotenv-expand";
@@ -13,6 +14,7 @@ import { ChatModule } from "./features/chat/module";
 import { MessageModule } from "./features/message/module";
 import { UserController } from "./features/user/controller";
 import { UserModule } from "./features/user/module";
+import { WsModule } from "./features/ws/module";
 import { Config, Typeorm } from "./infra";
 
 expand(config());
@@ -29,10 +31,12 @@ expand(config());
         return Typeorm.DataSource.defineOptions(configService.get("database"));
       },
     }),
+    EventEmitterModule.forRoot(),
     UserModule,
     AuthModule,
     ChatModule,
     MessageModule,
+    WsModule,
   ],
   controllers: [AppController, UserController],
   providers: [

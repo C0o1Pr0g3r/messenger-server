@@ -5,7 +5,7 @@ import { TaskEither } from "fp-ts/lib/TaskEither";
 import { DataSource, DeepPartial, In, Repository } from "typeorm";
 
 import { InterlocutorNotFoundError, ProhibitedOperationError } from "./error";
-import { AddUserToChat, Common, Create, GetMine } from "./ios";
+import { AddUserToChat, Common, Create, GetById, GetMine, GetParticipantIds } from "./ios";
 
 import { NotFoundError, UniqueKeyViolationError } from "~/app";
 import { File, Fp, Generator, ImpossibleError, UnexpectedError } from "~/common";
@@ -281,6 +281,74 @@ class ChatService {
             },
           ),
           taskEither.map(() => void 0),
+        ),
+      ),
+    );
+  }
+
+  getParticipantIds({
+    id,
+  }: GetParticipantIds.In): taskEither.TaskEither<
+    UnexpectedError | NotFoundError,
+    GetParticipantIds.Out
+  > {
+    return function_.pipe(
+      taskEither.tryCatch(
+        () =>
+          this.chatRepository.findOne({
+            where: {
+              id,
+            },
+            relations: {
+              author: true,
+              interlocutor: true,
+              participants: {
+                user: true,
+              },
+            },
+          }),
+        (reason) => new UnexpectedError(reason),
+      ),
+      taskEither.flatMap(taskEither.fromNullable(new NotFoundError())),
+      taskEither.map(({ type, author, interlocutor, participants }) =>
+        (type === domain.Chat.Attribute.Type.Schema.dialogue
+          ? [author, interlocutor]
+          : participants.map(({ user }) => user)
+        ).map(({ id }) => id),
+      ),
+    );
+  }
+
+  getById({
+    id,
+  }: GetById.In): taskEither.TaskEither<
+    UnexpectedError | ImpossibleError | NotFoundError,
+    Common.Out
+  > {
+    return function_.pipe(
+      taskEither.tryCatch(
+        () =>
+          this.chatRepository.findOne({
+            where: {
+              id,
+            },
+            relations: {
+              author: true,
+              interlocutor: true,
+              participants: {
+                user: true,
+              },
+            },
+          }),
+        (reason) => new UnexpectedError(reason),
+      ),
+      taskEither.flatMap(taskEither.fromNullable(new NotFoundError())),
+      taskEither.flatMap((chatModel) =>
+        mapChat(
+          chatModel,
+          chatModel.type === domain.Chat.Attribute.Type.Schema.dialogue
+            ? [chatModel.author, chatModel.interlocutor]
+            : chatModel.participants.map(({ user }) => user),
         ),
       ),
     );

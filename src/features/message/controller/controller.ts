@@ -19,10 +19,17 @@ import { Fp } from "~/common";
 import * as domain from "~/domain";
 import { AuthGuard } from "~/features/auth/auth.guard";
 import { CurrentUser, RequestWithUser } from "~/features/auth/current-user.decorator";
+import { ChatService } from "~/features/chat/service";
+import { EventGateway } from "~/features/ws/event-gateway";
+import { Outgoing } from "~/features/ws/message";
 
 @Controller("messages")
 class MessageController {
-  constructor(private readonly messageService: MessageService) {}
+  constructor(
+    private readonly messageService: MessageService,
+    private readonly chatService: ChatService,
+    private readonly eventGateway: EventGateway,
+  ) {}
 
   @Get("getallmessages")
   @UseGuards(AuthGuard)
@@ -66,22 +73,24 @@ class MessageController {
     @Body() { text_message, id_chat }: Create.ReqBody,
     @CurrentUser() user: RequestWithUser["user"],
   ): Promise<Common.ResBody> {
-    return mapMessage(
-      Fp.throwify(
-        await function_.pipe(
-          this.messageService.create({
-            text: text_message,
-            authorId: user.id,
-            chatId: id_chat,
-          }),
-          taskEither.mapLeft((error) => {
-            if (error instanceof NotFoundError)
-              return new NotFoundException("Could not find a chat with this ID.");
+    return Fp.throwify(
+      await function_.pipe(
+        this.messageService.create({
+          text: text_message,
+          authorId: user.id,
+          chatId: id_chat,
+        }),
+        taskEither.map(mapMessage),
+        taskEither.tapIO((message) =>
+          this.sendWsMessage(Outgoing.MessageType.SendMessage, message),
+        ),
+        taskEither.mapLeft((error) => {
+          if (error instanceof NotFoundError)
+            return new NotFoundException("Could not find a chat with this ID.");
 
-            return new InternalServerErrorException();
-          }),
-        )(),
-      ),
+          return new InternalServerErrorException();
+        }),
+      )(),
     );
   }
 
@@ -91,22 +100,24 @@ class MessageController {
     @Body() { id_message, text_message }: Edit.ReqBody,
     @CurrentUser() user: RequestWithUser["user"],
   ): Promise<Common.ResBody> {
-    return mapMessage(
-      Fp.throwify(
-        await function_.pipe(
-          this.messageService.edit({
-            id: id_message,
-            text: text_message,
-            initiatorId: user.id,
-          }),
-          taskEither.mapLeft((error) => {
-            if (error instanceof NotFoundError)
-              return new NotFoundException("Message with this ID not found.");
+    return Fp.throwify(
+      await function_.pipe(
+        this.messageService.edit({
+          id: id_message,
+          text: text_message,
+          initiatorId: user.id,
+        }),
+        taskEither.map(mapMessage),
+        taskEither.tapIO((message) =>
+          this.sendWsMessage(Outgoing.MessageType.EditMessage, message),
+        ),
+        taskEither.mapLeft((error) => {
+          if (error instanceof NotFoundError)
+            return new NotFoundException("Message with this ID not found.");
 
-            return new InternalServerErrorException();
-          }),
-        )(),
-      ),
+          return new InternalServerErrorException();
+        }),
+      )(),
     );
   }
 
@@ -118,16 +129,26 @@ class MessageController {
   ): Promise<true> {
     return Fp.throwify(
       await function_.pipe(
-        this.messageService.delete({
+        this.messageService.getById({
           id: id_message,
-          initiatorId: user.id,
         }),
-        taskEither.mapLeft((error) => {
-          if (error instanceof NotFoundError)
-            return new NotFoundException("Message with this ID not found.");
+        taskEither.flatMap((message) =>
+          function_.pipe(
+            this.messageService.delete({
+              id: id_message,
+              initiatorId: user.id,
+            }),
+            taskEither.tapIO(() =>
+              this.sendWsMessage(Outgoing.MessageType.DeleteMessage, mapMessage(message)),
+            ),
+            taskEither.mapLeft((error) => {
+              if (error instanceof NotFoundError)
+                return new NotFoundException("Message with this ID not found.");
 
-          return new InternalServerErrorException();
-        }),
+              return new InternalServerErrorException();
+            }),
+          ),
+        ),
       )(),
     );
   }
@@ -160,6 +181,33 @@ class MessageController {
           return new InternalServerErrorException();
         }),
       )(),
+    );
+  }
+
+  private sendWsMessage(
+    type: Extract<
+      Outgoing.MessageType,
+      | typeof Outgoing.MessageType.SendMessage
+      | typeof Outgoing.MessageType.EditMessage
+      | typeof Outgoing.MessageType.DeleteMessage
+    >,
+    message: Common.ResBody,
+  ) {
+    return function_.pipe(
+      this.chatService.getParticipantIds({
+        id: message.rk_chat,
+      }),
+      taskEither.tapIO((participantIds) =>
+        taskEither.right(
+          this.eventGateway.sendMessage(
+            {
+              type,
+              data: message,
+            },
+            participantIds,
+          ),
+        ),
+      ),
     );
   }
 }

@@ -14,8 +14,11 @@
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.0.1",
+    "@nestjs/event-emitter": "^3.0.1",
     "@nestjs/platform-express": "^11.0.1",
+    "@nestjs/platform-ws": "^11.1.5",
     "@nestjs/typeorm": "^11.0.0",
+    "@nestjs/websockets": "^11.1.5",
     "bcrypt": "^6.0.0",
     "dotenv": "^17.2.1",
     "dotenv-expand": "^12.0.2",
@@ -28,6 +31,7 @@
     "rxjs": "^7.8.1",
     "typeorm": "^0.3.25",
     "uid-safe": "^2.1.5",
+    "ws": "^8.18.3",
     "zod": "^3.25.76"
   },
   "devDependencies": {
@@ -51,6 +55,7 @@
     "@types/pg": "^8.15.4",
     "@types/supertest": "^6.0.2",
     "@types/uid-safe": "^2.1.5",
+    "@types/ws": "^8.18.1",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",
     "eslint-import-resolver-typescript": "^4.4.4",

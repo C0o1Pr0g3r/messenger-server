@@ -2,6 +2,8 @@ import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 
 import { AuthModule } from "../auth/module";
+import { ChatModule } from "../chat/module";
+import { WsModule } from "../ws/module";
 
 import { MessageController } from "./controller";
 import { MessageService } from "./service";
@@ -16,6 +18,8 @@ import { Typeorm } from "~/infra";
       Typeorm.Model.ForwardedMessage,
     ]),
     AuthModule,
+    ChatModule,
+    WsModule,
   ],
   providers: [MessageService],
   controllers: [MessageController],

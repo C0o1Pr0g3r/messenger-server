@@ -3,7 +3,16 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { function as function_, taskEither } from "fp-ts";
 import { DeepPartial, Repository } from "typeorm";
 
-import { Common, Create, Delete, Edit, Forward, GetMessagesByChatId, GetMine } from "./ios";
+import {
+  Common,
+  Create,
+  Delete,
+  Edit,
+  Forward,
+  GetById,
+  GetMessagesByChatId,
+  GetMine,
+} from "./ios";
 
 import { ForeignKeyViolationError, NotFoundError } from "~/app";
 import { UnexpectedError } from "~/common";
@@ -247,6 +256,31 @@ class MessageService {
         ),
       ),
       taskEither.map(() => true),
+    );
+  }
+
+  getById({ id }: GetById.In): taskEither.TaskEither<UnexpectedError | NotFoundError, Common.Out> {
+    return function_.pipe(
+      taskEither.tryCatch(
+        () =>
+          this.messageRepository.findOne({
+            where: {
+              id,
+            },
+            relations: {
+              author: true,
+              chat: true,
+            },
+          }),
+        (reason) => new UnexpectedError(reason),
+      ),
+      taskEither.flatMap(taskEither.fromNullable(new NotFoundError())),
+      taskEither.map((message) =>
+        mapMessage(message, {
+          authorId: message.author.id,
+          chatId: message.chat.id,
+        }),
+      ),
     );
   }
 

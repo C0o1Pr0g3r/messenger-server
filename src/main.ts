@@ -1,5 +1,6 @@
 import { ConfigService } from "@nestjs/config";
 import { NestFactory } from "@nestjs/core";
+import { WsAdapter } from "@nestjs/platform-ws";
 import type { CorsOptions } from "cors";
 import "reflect-metadata";
 
@@ -24,6 +25,8 @@ async function bootstrap() {
       Http.Method.DELETE,
     ],
   } satisfies CorsOptions);
+
+  app.useWebSocketAdapter(new WsAdapter(app));
 
   await app.listen(process.env["PORT"] ?? 3000);
 }

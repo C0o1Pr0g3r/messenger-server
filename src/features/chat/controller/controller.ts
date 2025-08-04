@@ -21,10 +21,15 @@ import { Fp, Str } from "~/common";
 import * as domain from "~/domain";
 import { AuthGuard } from "~/features/auth/auth.guard";
 import { CurrentUser, RequestWithUser } from "~/features/auth/current-user.decorator";
+import { EventGateway } from "~/features/ws/event-gateway";
+import { Outgoing } from "~/features/ws/message";
 
 @Controller("chats")
 class ChatController {
-  constructor(private readonly chatService: ChatService) {}
+  constructor(
+    private readonly chatService: ChatService,
+    private readonly eventGateway: EventGateway,
+  ) {}
 
   @Post("createchat")
   @UseGuards(AuthGuard)
@@ -33,38 +38,45 @@ class ChatController {
     @CurrentUser() user: RequestWithUser["user"],
   ): Promise<Common.ResBody> {
     try {
-      return mapChat(
-        Fp.throwify(
-          await function_.pipe(
-            this.chatService.create(
-              ChatServiceIos.Create.zIn.parse({
-                authorId: user.id,
-                ...(rk_type_chat === domain.Chat.Attribute.Type.zSchema.Enum.dialogue
-                  ? {
-                      type: rk_type_chat,
-                      interlocutorId: id_user,
-                    }
-                  : {
-                      type: rk_type_chat,
-                      name: name_chat,
-                    }),
-              }),
-            ),
-            taskEither.mapLeft((error) => {
-              if (
-                error instanceof UniqueKeyViolationError &&
-                error.constraintName === domain.Chat.Constraint.UNIQUE_CHAT_LINK
-              )
-                return new ConflictException("Failed to create chat. Try again.");
-
-              if (error instanceof InterlocutorNotFoundError)
-                return new BadRequestException(`Unable to find interlocutor with ID = ${id_user}.`);
-
-              return new InternalServerErrorException();
+      return Fp.throwify(
+        await function_.pipe(
+          this.chatService.create(
+            ChatServiceIos.Create.zIn.parse({
+              authorId: user.id,
+              ...(rk_type_chat === domain.Chat.Attribute.Type.zSchema.Enum.dialogue
+                ? {
+                    type: rk_type_chat,
+                    interlocutorId: id_user,
+                  }
+                : {
+                    type: rk_type_chat,
+                    name: name_chat,
+                  }),
             }),
-          )(),
-        ),
-        user.id,
+          ),
+          taskEither.map((chat) => mapChat(chat, user.id)),
+          taskEither.tapIO((chat) =>
+            this.sendWsMessage(
+              {
+                type: Outgoing.MessageType.CreateChat,
+                data: chat,
+              },
+              chat.id_chat,
+            ),
+          ),
+          taskEither.mapLeft((error) => {
+            if (
+              error instanceof UniqueKeyViolationError &&
+              error.constraintName === domain.Chat.Constraint.UNIQUE_CHAT_LINK
+            )
+              return new ConflictException("Failed to create chat. Try again.");
+
+            if (error instanceof InterlocutorNotFoundError)
+              return new BadRequestException(`Unable to find interlocutor with ID = ${id_user}.`);
+
+            return new InternalServerErrorException();
+          }),
+        )(),
       );
     } catch (error) {
       if (error instanceof z.ZodError) throw new BadRequestException(error);
@@ -101,6 +113,41 @@ class ChatController {
             userId: id_user,
             chatId: id_chat,
           }),
+          taskEither.tapIO(() =>
+            function_.pipe(
+              this.chatService.getById({
+                id: id_chat,
+              }),
+              taskEither.tapIO((chat) => {
+                this.eventGateway.sendMessage(
+                  {
+                    type: Outgoing.MessageType.CreateChat,
+                    data: mapChat(chat, id_user),
+                  },
+                  [id_user],
+                );
+                this.eventGateway.sendMessage(
+                  {
+                    type: Outgoing.MessageType.AddUserToChat,
+                    data: {
+                      id_user,
+                      ...Fp.iife(() => {
+                        const { nickname = Str.EMPTY, email = Str.EMPTY } =
+                          chat.participants.find(({ id }) => id === id_user) ?? {};
+                        return {
+                          nickname,
+                          email,
+                        };
+                      }),
+                      id_chat,
+                    },
+                  },
+                  chat.participants.filter(({ id }) => id !== id_user).map(({ id }) => id),
+                );
+                return taskEither.right(void 0);
+              }),
+            ),
+          ),
           taskEither.mapLeft((error) => {
             if (
               error instanceof UniqueKeyViolationError &&
@@ -123,6 +170,29 @@ class ChatController {
 
       throw error;
     }
+  }
+
+  private sendWsMessage(
+    message: Extract<
+      Outgoing.Message,
+      {
+        type:
+          | typeof Outgoing.MessageType.CreateChat
+          | typeof Outgoing.MessageType.EditChat
+          | typeof Outgoing.MessageType.DeleteChat
+          | typeof Outgoing.MessageType.AddUserToChat;
+      }
+    >,
+    chatId: domain.Chat.BaseSchema["id"],
+  ) {
+    return function_.pipe(
+      this.chatService.getParticipantIds({
+        id: chatId,
+      }),
+      taskEither.tapIO((participantIds) =>
+        taskEither.right(this.eventGateway.sendMessage(message, participantIds)),
+      ),
+    );
   }
 }
 
