@@ -45,17 +45,12 @@ const zMessage = z.discriminatedUnion(DISCRIMINATOR, [
   }),
   z.object({
     [DISCRIMINATOR]: z.literal(MessageType.AddUserToChat),
-    data: UserControllerCommon.zResBody
-      .pick({
-        id_user: true,
-        nickname: true,
-        email: true,
-      })
-      .merge(
-        ChatControllerCommon.zResBody.pick({
-          id_chat: true,
-        }),
-      ),
+    data: z.object({
+      user: UserControllerCommon.zResBody,
+      chat: ChatControllerCommon.zResBody.pick({
+        id: true,
+      }),
+    }),
   }),
 ]);
 type Message = z.infer<typeof zMessage>;

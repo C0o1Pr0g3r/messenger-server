@@ -34,7 +34,7 @@ class ChatController {
   @Post("createchat")
   @UseGuards(AuthGuard)
   async updateMe(
-    @Body() { rk_type_chat, name_chat, id_user }: Create.ReqBody,
+    @Body() { type, name, interlocutorId }: Create.ReqBody,
     @CurrentUser() user: RequestWithUser["user"],
   ): Promise<Common.ResBody> {
     try {
@@ -43,14 +43,14 @@ class ChatController {
           this.chatService.create(
             ChatServiceIos.Create.zIn.parse({
               authorId: user.id,
-              ...(rk_type_chat === domain.Chat.Attribute.Type.zSchema.Enum.dialogue
+              ...(type === domain.Chat.Attribute.Type.zSchema.Enum.dialogue
                 ? {
-                    type: rk_type_chat,
-                    interlocutorId: id_user,
+                    type,
+                    interlocutorId,
                   }
                 : {
-                    type: rk_type_chat,
-                    name: name_chat,
+                    type,
+                    name,
                   }),
             }),
           ),
@@ -61,7 +61,7 @@ class ChatController {
                 type: Outgoing.MessageType.CreateChat,
                 data: chat,
               },
-              chat.id_chat,
+              chat.id,
             ),
           ),
           taskEither.mapLeft((error) => {
@@ -72,7 +72,9 @@ class ChatController {
               return new ConflictException("Failed to create chat. Try again.");
 
             if (error instanceof InterlocutorNotFoundError)
-              return new BadRequestException(`Unable to find interlocutor with ID = ${id_user}.`);
+              return new BadRequestException(
+                `Unable to find interlocutor with ID = ${interlocutorId}.`,
+              );
 
             return new InternalServerErrorException();
           }),
@@ -102,7 +104,7 @@ class ChatController {
   @Post("addusertochat")
   @UseGuards(AuthGuard)
   async addUserToChat(
-    @Body() { id_user, id_chat }: AddUserToChat.ReqBody,
+    @Body() { chatId, userId }: AddUserToChat.ReqBody,
     @CurrentUser() user: RequestWithUser["user"],
   ): Promise<void> {
     try {
@@ -110,39 +112,47 @@ class ChatController {
         await function_.pipe(
           this.chatService.addUserToChat({
             initiatorId: user.id,
-            userId: id_user,
-            chatId: id_chat,
+            chatId,
+            userId,
           }),
           taskEither.tapIO(() =>
             function_.pipe(
               this.chatService.getById({
-                id: id_chat,
+                id: chatId,
               }),
               taskEither.tapIO((chat) => {
                 this.eventGateway.sendMessage(
                   {
                     type: Outgoing.MessageType.CreateChat,
-                    data: mapChat(chat, id_user),
+                    data: mapChat(chat, userId),
                   },
-                  [id_user],
+                  [userId],
                 );
                 this.eventGateway.sendMessage(
                   {
                     type: Outgoing.MessageType.AddUserToChat,
                     data: {
-                      id_user,
-                      ...Fp.iife(() => {
-                        const { nickname = Str.EMPTY, email = Str.EMPTY } =
-                          chat.participants.find(({ id }) => id === id_user) ?? {};
-                        return {
-                          nickname,
-                          email,
-                        };
-                      }),
-                      id_chat,
+                      user: {
+                        id: userId,
+                        ...Fp.iife(() => {
+                          const {
+                            nickname = Str.EMPTY,
+                            email = Str.EMPTY,
+                            isPrivate = false,
+                          } = chat.participants.find(({ id }) => id === userId) ?? {};
+                          return {
+                            nickname,
+                            email,
+                            isPrivate,
+                          };
+                        }),
+                      },
+                      chat: {
+                        id: chatId,
+                      },
                     },
                   },
-                  chat.participants.filter(({ id }) => id !== id_user).map(({ id }) => id),
+                  chat.participants.filter(({ id }) => id !== userId).map(({ id }) => id),
                 );
                 return taskEither.right(void 0);
               }),
@@ -203,10 +213,10 @@ function mapUser({
   isPrivate,
 }: Pick<domain.User.Schema, "id" | "nickname" | "email" | "isPrivate">) {
   return {
-    id_user: id,
+    id,
     nickname,
     email,
-    private_acc: isPrivate,
+    isPrivate,
   };
 }
 
@@ -220,11 +230,11 @@ function mapChat(
   } = params as Partial<Pick<domain.Chat.PolylogueSchema, "name" | "link">>;
 
   return {
-    id_chat: id,
-    name_chat: name,
+    id,
+    name,
     link,
-    rk_type_chat: type,
-    users: participants.map(mapUser),
+    type,
+    participants: participants.map(mapUser),
   };
 }
 

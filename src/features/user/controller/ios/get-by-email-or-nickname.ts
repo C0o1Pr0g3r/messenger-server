@@ -6,7 +6,7 @@ import { UserServiceIos } from "../../service";
 import { zResBody as zBaseResBody } from "./common";
 
 const zReqQuery = z.object({
-  user_data_to_find: UserServiceIos.GetByEmailOrNickname.zIn.shape.emailOrNickname,
+  emailOrNickname: UserServiceIos.GetByEmailOrNickname.zIn.shape.emailOrNickname,
 });
 class ReqQuery extends createZodDto(zReqQuery) {}
 

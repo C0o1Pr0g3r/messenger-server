@@ -4,8 +4,8 @@ import { z } from "zod";
 import { Chat, User } from "~/domain";
 
 const zReqBody = z.object({
-  id_user: User.zSchema.shape.id,
-  id_chat: Chat.zBaseSchema.shape.id,
+  chatId: Chat.zBaseSchema.shape.id,
+  userId: User.zSchema.shape.id,
 });
 class ReqBody extends createZodDto(zReqBody) {}
 

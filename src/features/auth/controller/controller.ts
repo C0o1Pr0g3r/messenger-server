@@ -83,10 +83,10 @@ function mapUser({
   isPrivate,
 }: Pick<domain.User.Schema, "id" | "nickname" | "email" | "isPrivate">) {
   return {
-    id_user: id,
+    id,
     nickname,
     email,
-    private_acc: isPrivate,
+    isPrivate,
   };
 }
 

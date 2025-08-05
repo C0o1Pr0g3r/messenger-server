@@ -28,7 +28,7 @@ class UserController {
   @Post("edituser")
   @UseGuards(AuthGuard)
   async updateMe(
-    @Body() { nickname, email, private_acc, password, new_password }: UpdateMe.ReqBody,
+    @Body() { nickname, email, isPrivate, currentPassword, newPassword }: UpdateMe.ReqBody,
     @CurrentUser() user: RequestWithUser["user"],
   ): Promise<Common.ResBody> {
     return mapUser(
@@ -39,12 +39,12 @@ class UserController {
               id: user.id,
               nickname,
               email,
-              isPrivate: private_acc,
-              ...(password && new_password
+              isPrivate,
+              ...(currentPassword && newPassword
                 ? {
                     withPassword: true,
-                    currentPassword: password,
-                    newPassword: new_password,
+                    currentPassword,
+                    newPassword,
                   }
                 : {
                     withPassword: false,
@@ -92,7 +92,7 @@ class UserController {
     return Fp.throwify(
       await function_.pipe(
         this.userService.getByEmailOrNickname({
-          emailOrNickname: query.user_data_to_find,
+          emailOrNickname: query.emailOrNickname,
         }),
       )(),
     ).map(mapUser);
@@ -106,10 +106,10 @@ function mapUser({
   isPrivate,
 }: Pick<domain.User.Schema, "id" | "nickname" | "email" | "isPrivate">) {
   return {
-    id_user: id,
+    id,
     nickname,
     email,
-    private_acc: isPrivate,
+    isPrivate,
   };
 }
 

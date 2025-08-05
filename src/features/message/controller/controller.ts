@@ -54,8 +54,8 @@ class MessageController {
     return Fp.throwify(
       await function_.pipe(
         this.messageService.getMessagesByChatId({
+          ...query,
           userId: user.id,
-          chatId: query.id_chat,
         }),
         taskEither.mapLeft((error) => {
           if (error instanceof NotFoundError)
@@ -70,15 +70,14 @@ class MessageController {
   @Post("sendmessage")
   @UseGuards(AuthGuard)
   async create(
-    @Body() { text_message, id_chat }: Create.ReqBody,
+    @Body() body: Create.ReqBody,
     @CurrentUser() user: RequestWithUser["user"],
   ): Promise<Common.ResBody> {
     return Fp.throwify(
       await function_.pipe(
         this.messageService.create({
-          text: text_message,
+          ...body,
           authorId: user.id,
-          chatId: id_chat,
         }),
         taskEither.map(mapMessage),
         taskEither.tapIO((message) =>
@@ -97,14 +96,13 @@ class MessageController {
   @Post("editmessage")
   @UseGuards(AuthGuard)
   async edit(
-    @Body() { id_message, text_message }: Edit.ReqBody,
+    @Body() body: Edit.ReqBody,
     @CurrentUser() user: RequestWithUser["user"],
   ): Promise<Common.ResBody> {
     return Fp.throwify(
       await function_.pipe(
         this.messageService.edit({
-          id: id_message,
-          text: text_message,
+          ...body,
           initiatorId: user.id,
         }),
         taskEither.map(mapMessage),
@@ -124,18 +122,16 @@ class MessageController {
   @Post("deletemessage")
   @UseGuards(AuthGuard)
   async delete(
-    @Body() { id_message }: Delete.ReqBody,
+    @Body() body: Delete.ReqBody,
     @CurrentUser() user: RequestWithUser["user"],
   ): Promise<true> {
     return Fp.throwify(
       await function_.pipe(
-        this.messageService.getById({
-          id: id_message,
-        }),
+        this.messageService.getById(body),
         taskEither.flatMap((message) =>
           function_.pipe(
             this.messageService.delete({
-              id: id_message,
+              id: body.id,
               initiatorId: user.id,
             }),
             taskEither.tapIO(() =>
@@ -156,15 +152,14 @@ class MessageController {
   @Post("resendmessage")
   @UseGuards(AuthGuard)
   async forward(
-    @Body() { id_message, rk_chat }: Forward.ReqBody,
+    @Body() body: Forward.ReqBody,
     @CurrentUser() user: RequestWithUser["user"],
   ): Promise<true> {
     return Fp.throwify(
       await function_.pipe(
         this.messageService.forward({
-          messageId: id_message,
+          ...body,
           forwardedById: user.id,
-          chatId: rk_chat,
         }),
         taskEither.mapLeft((error) => {
           if (error instanceof ForeignKeyViolationError) {
@@ -195,7 +190,7 @@ class MessageController {
   ) {
     return function_.pipe(
       this.chatService.getParticipantIds({
-        id: message.rk_chat,
+        id: message.chatId,
       }),
       taskEither.tapIO((participantIds) =>
         taskEither.right(
@@ -214,11 +209,11 @@ class MessageController {
 
 function mapMessage({ id, text, createdAt, authorId, chatId }: MessageServiceIos.Common.Out) {
   return {
-    id_message: id,
-    text_message: text,
-    data_time: createdAt,
-    rk_user: authorId,
-    rk_chat: chatId,
+    id,
+    text,
+    createdAt,
+    authorId,
+    chatId,
   };
 }
 

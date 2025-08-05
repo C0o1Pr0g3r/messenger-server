@@ -1,13 +1,12 @@
 import { createZodDto } from "nestjs-zod";
-import { z } from "zod";
 
 import { UserServiceIos } from "~/features/user/service";
 
-const zResBody = z.object({
-  id_user: UserServiceIos.Common.zOut.shape.id,
-  nickname: UserServiceIos.Common.zOut.shape.nickname,
-  email: UserServiceIos.Common.zOut.shape.email,
-  private_acc: UserServiceIos.Common.zOut.shape.isPrivate,
+const zResBody = UserServiceIos.Common.zOut.pick({
+  id: true,
+  nickname: true,
+  email: true,
+  isPrivate: true,
 });
 class ResBody extends createZodDto(zResBody) {}
 

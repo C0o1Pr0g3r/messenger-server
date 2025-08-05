@@ -1,11 +1,10 @@
 import { createZodDto } from "nestjs-zod";
-import { z } from "zod";
 
 import { MessageServiceIos } from "../../service";
 
-const zReqBody = z.object({
-  id_message: MessageServiceIos.Forward.zIn.shape.messageId,
-  rk_chat: MessageServiceIos.Forward.zIn.shape.chatId,
+const zReqBody = MessageServiceIos.Forward.zIn.pick({
+  messageId: true,
+  chatId: true,
 });
 class ReqBody extends createZodDto(zReqBody) {}
 
