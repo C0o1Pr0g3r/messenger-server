@@ -10,6 +10,7 @@ import { ZodValidationPipe } from "nestjs-zod";
 import { AppController } from "./app.controller";
 import { AppService } from "./app.service";
 import { AuthModule } from "./features/auth/module";
+import { BlobModule } from "./features/blob/module";
 import { ChatModule } from "./features/chat/module";
 import { MessageModule } from "./features/message/module";
 import { UserController } from "./features/user/controller";
@@ -37,6 +38,7 @@ expand(config());
     ChatModule,
     MessageModule,
     WsModule,
+    BlobModule,
   ],
   controllers: [AppController, UserController],
   providers: [

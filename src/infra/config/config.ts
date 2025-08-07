@@ -7,6 +7,7 @@ import { zBcryptConfig } from "./bcrypt";
 import { zCorsConfig } from "./cors";
 import { zDatabaseConfig } from "./database";
 import { zNodeConfig } from "./node";
+import { zVercelConfig } from "./vercel";
 
 const zConfig = z.object({
   auth: zAuthConfig,
@@ -14,6 +15,7 @@ const zConfig = z.object({
   cors: zCorsConfig,
   database: zDatabaseConfig,
   node: zNodeConfig,
+  vercel: zVercelConfig,
 });
 type Config = z.infer<typeof zConfig>;
 
