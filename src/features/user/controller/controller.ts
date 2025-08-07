@@ -104,12 +104,14 @@ function mapUser({
   nickname,
   email,
   isPrivate,
-}: Pick<domain.User.Schema, "id" | "nickname" | "email" | "isPrivate">) {
+  avatar,
+}: Pick<domain.User.Schema, "id" | "nickname" | "email" | "isPrivate" | "avatar">) {
   return {
     id,
     nickname,
     email,
     isPrivate,
+    avatar,
   };
 }
 

@@ -9,6 +9,7 @@ const zResBody = UserServiceIos.Common.zOut
     nickname: true,
     email: true,
     isPrivate: true,
+    avatar: true,
   })
   .extend({
     token: z.string().jwt(),

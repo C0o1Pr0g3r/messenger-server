@@ -139,11 +139,13 @@ class ChatController {
                             nickname = Str.EMPTY,
                             email = Str.EMPTY,
                             isPrivate = false,
+                            avatar = null,
                           } = chat.participants.find(({ id }) => id === userId) ?? {};
                           return {
                             nickname,
                             email,
                             isPrivate,
+                            avatar,
                           };
                         }),
                       },
@@ -211,12 +213,14 @@ function mapUser({
   nickname,
   email,
   isPrivate,
-}: Pick<domain.User.Schema, "id" | "nickname" | "email" | "isPrivate">) {
+  avatar,
+}: Pick<domain.User.Schema, "id" | "nickname" | "email" | "isPrivate" | "avatar">) {
   return {
     id,
     nickname,
     email,
     isPrivate,
+    avatar,
   };
 }
 

@@ -1,11 +1,15 @@
 import {
+  BadRequestException,
   Body,
   ConflictException,
   Controller,
   InternalServerErrorException,
   NotFoundException,
   Post,
+  UploadedFile,
+  UseInterceptors,
 } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
 import { function as function_, taskEither } from "fp-ts";
 
 import { AuthService } from "../service";
@@ -13,9 +17,9 @@ import { AuthService } from "../service";
 import { Common, Login, Register } from "./ios";
 
 import { NotFoundError, UniqueKeyViolationError } from "~/app";
-import { Fp } from "~/common";
+import { File, Fp } from "~/common";
 import * as domain from "~/domain";
-import { UserService } from "~/features/user/service";
+import { UserService, UserServiceIos } from "~/features/user/service";
 
 @Controller("users")
 class AuthController {
@@ -25,10 +29,26 @@ class AuthController {
   ) {}
 
   @Post("register")
-  async register(@Body() body: Register.ReqBody): Promise<Common.ResBody> {
+  @UseInterceptors(FileInterceptor("avatar"))
+  async register(
+    @Body() { avatarUrl, ...body }: Register.ReqBody,
+    @UploadedFile() avatarFile: Express.Multer.File | undefined,
+  ): Promise<Common.ResBody> {
+    const {
+      success,
+      data: avatar,
+      error,
+    } = UserServiceIos.Create.zIn.shape.avatar.safeParse(
+      avatarFile ? File.createFileFromMulterFile(avatarFile) : avatarUrl,
+    );
+    if (!success) throw new BadRequestException(error);
+
     const user = Fp.throwify(
       await function_.pipe(
-        this.userService.create(body),
+        this.userService.create({
+          ...body,
+          avatar,
+        }),
         taskEither.mapLeft((error) => {
           if (
             error instanceof UniqueKeyViolationError &&
@@ -81,12 +101,14 @@ function mapUser({
   nickname,
   email,
   isPrivate,
-}: Pick<domain.User.Schema, "id" | "nickname" | "email" | "isPrivate">) {
+  avatar,
+}: Pick<domain.User.Schema, "id" | "nickname" | "email" | "isPrivate" | "avatar">) {
   return {
     id,
     nickname,
     email,
     isPrivate,
+    avatar,
   };
 }
 

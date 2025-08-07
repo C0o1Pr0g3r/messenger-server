@@ -18,6 +18,7 @@ const zResBody = Chat.zBaseSchema
         nickname: true,
         email: true,
         isPrivate: true,
+        avatar: true,
       }),
     ),
   })

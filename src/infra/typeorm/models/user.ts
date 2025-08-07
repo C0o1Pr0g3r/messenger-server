@@ -44,6 +44,9 @@ class User {
   })
   isPrivate!: boolean;
 
+  @Column(toColumnOptions(domain.User.zSchema.shape.avatar))
+  avatar!: string | null;
+
   @Column(() => LifeCycleDates, {
     prefix: false,
   })

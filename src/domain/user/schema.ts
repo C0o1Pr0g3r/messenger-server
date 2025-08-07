@@ -2,7 +2,7 @@ import z from "zod";
 
 import { zLifeCycleDates } from "../life-cycle-dates";
 
-import { Password, PasswordHash } from "./attributes";
+import { Avatar, Password, PasswordHash } from "./attributes";
 
 const zSchema = zLifeCycleDates.extend({
   id: z.number().int(),
@@ -11,6 +11,7 @@ const zSchema = zLifeCycleDates.extend({
   password: Password.zSchema,
   passwordHash: PasswordHash.zSchema,
   isPrivate: z.boolean(),
+  avatar: Avatar.zSchema,
 });
 type Schema = z.infer<typeof zSchema>;
 

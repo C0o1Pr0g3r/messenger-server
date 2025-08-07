@@ -7,6 +7,7 @@ const zResBody = UserServiceIos.Common.zOut.pick({
   nickname: true,
   email: true,
   isPrivate: true,
+  avatar: true,
 });
 class ResBody extends createZodDto(zResBody) {}
 
