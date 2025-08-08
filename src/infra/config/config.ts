@@ -2,6 +2,7 @@ import { registerAs } from "@nestjs/config";
 import { either, function as function_ } from "fp-ts";
 import { z } from "zod";
 
+import { zAppConfig } from "./app";
 import { zAuthConfig } from "./auth";
 import { zBcryptConfig } from "./bcrypt";
 import { zCorsConfig } from "./cors";
@@ -10,6 +11,7 @@ import { zNodeConfig } from "./node";
 import { zVercelConfig } from "./vercel";
 
 const zConfig = z.object({
+  app: zAppConfig,
   auth: zAuthConfig,
   bcrypt: zBcryptConfig,
   cors: zCorsConfig,

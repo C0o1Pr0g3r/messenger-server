@@ -28,6 +28,11 @@ async function bootstrap() {
 
   app.useWebSocketAdapter(new WsAdapter(app));
 
-  await app.listen(process.env["PORT"] ?? 3000);
+  await app.listen(
+    process.env["PORT"] ?? 3000,
+    configService.get("app", {
+      infer: true,
+    }).hostname,
+  );
 }
 void bootstrap();
