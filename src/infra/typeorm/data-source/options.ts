@@ -19,13 +19,18 @@ const MIGRATIONS_GLOB = path.join(
   JS_TS_GLOB,
 );
 
-function defineOptions({ name, ...rest }: Config["database"]): DataSourceOptions {
+function defineOptions({ name, ssl, ...rest }: Config["database"]): DataSourceOptions {
   return {
     ...rest,
     type: "postgres",
     database: name,
     entities: [ENTITIES_GLOB],
     migrations: [MIGRATIONS_GLOB],
+    ...(ssl && {
+      ssl: {
+        rejectUnauthorized: false,
+      },
+    }),
   };
 }
 
