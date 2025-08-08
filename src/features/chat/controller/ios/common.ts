@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { ChatServiceIos } from "../../service";
 
-import { Chat } from "~/domain";
+import { Chat, User } from "~/domain";
 import { UserServiceIos } from "~/features/user/service";
 
 const zResBody = Chat.zBaseSchema
@@ -12,6 +12,7 @@ const zResBody = Chat.zBaseSchema
   })
   .extend({
     type: Chat.Attribute.Type.zSchema,
+    authorId: User.zSchema.shape.id,
     participants: z.array(
       UserServiceIos.Common.zOut.pick({
         id: true,

@@ -37,6 +37,9 @@ class ChatController {
     @Body() { type, name, interlocutorId }: Create.ReqBody,
     @CurrentUser() user: RequestWithUser["user"],
   ): Promise<Common.ResBody> {
+    if (interlocutorId === user.id)
+      throw new BadRequestException("You cannot create a chat with yourself.");
+
     try {
       return Fp.throwify(
         await function_.pipe(
@@ -225,7 +228,7 @@ function mapUser({
 }
 
 function mapChat(
-  { id, type, participants, ...params }: ChatServiceIos.Common.Out,
+  { id, type, participants, authorId, ...params }: ChatServiceIos.Common.Out,
   userId: domain.User.Schema["id"],
 ) {
   const {
@@ -238,6 +241,7 @@ function mapChat(
     name,
     link,
     type,
+    authorId,
     participants: participants.map(mapUser),
   };
 }
