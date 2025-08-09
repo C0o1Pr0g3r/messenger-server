@@ -7,6 +7,7 @@ const zIn = Message.zOriginalSchema
     id: true,
   })
   .extend({
+    [Message.DISCRIMINATOR]: Message.Attribute.OriginType.zSchema,
     initiatorId: User.zSchema.shape.id,
   });
 type In = z.infer<typeof zIn>;

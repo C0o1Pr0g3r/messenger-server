@@ -3,6 +3,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { function as function_, taskEither } from "fp-ts";
 import { DeepPartial, Repository } from "typeorm";
 
+import { ProhibitedOperationError } from "./error";
 import {
   Common,
   Create,
@@ -15,7 +16,7 @@ import {
 } from "./ios";
 
 import { ForeignKeyViolationError, NotFoundError } from "~/app";
-import { ImpossibleError, UnexpectedError } from "~/common";
+import { ImpossibleError, TypeGuard, UnexpectedError } from "~/common";
 import * as domain from "~/domain";
 import { Typeorm } from "~/infra";
 
@@ -238,48 +239,154 @@ class MessageService {
 
   delete({
     id,
+    originType,
     initiatorId,
-  }: Delete.In): taskEither.TaskEither<UnexpectedError | NotFoundError, true> {
+  }: Delete.In): taskEither.TaskEither<
+    UnexpectedError | NotFoundError | ProhibitedOperationError,
+    true
+  > {
     return function_.pipe(
       taskEither.tryCatch(
         () =>
-          this.messageRepository.delete({
-            id,
-            author: {
-              id: initiatorId,
-            },
-          }),
+          originType === domain.Message.Attribute.OriginType.Schema.original
+            ? this.messageRepository.delete({
+                id,
+                author: {
+                  id: initiatorId,
+                },
+              })
+            : this.forwardedMessageRepository.delete({
+                id,
+                forwardedBy: {
+                  id: initiatorId,
+                },
+              }),
         (reason) => new UnexpectedError(reason),
       ),
-      taskEither.flatMap(
-        taskEither.fromPredicate(
-          ({ affected }) => affected === 1,
-          () => new NotFoundError(),
-        ),
-      ),
+      taskEither.flatMap(({ affected }) => {
+        if (affected === 1) return taskEither.right(void 0);
+        if (affected === 0 && originType === domain.Message.Attribute.OriginType.Schema.forwarded)
+          return taskEither.left(
+            new ProhibitedOperationError("You cannot delete a message forwarded by another user."),
+          );
+
+        return taskEither.left(new NotFoundError());
+      }),
       taskEither.map(() => true),
     );
   }
 
-  getById({ id }: GetById.In): taskEither.TaskEither<UnexpectedError | NotFoundError, Common.Out> {
+  getById({
+    id,
+    originType,
+    userId,
+  }: GetById.In): taskEither.TaskEither<UnexpectedError | NotFoundError, Common.Out> {
     return function_.pipe(
       taskEither.tryCatch(
-        () =>
-          this.messageRepository.findOne({
-            where: {
-              id,
-            },
-            relations: {
-              author: true,
-              chat: true,
-            },
-          }),
+        (): Promise<Typeorm.Model.Message | Typeorm.Model.ForwardedMessage | null> =>
+          originType === domain.Message.Attribute.OriginType.Schema.original
+            ? this.messageRepository.findOne({
+                where: [
+                  {
+                    id,
+                    chat: {
+                      author: {
+                        id: userId,
+                      },
+                    },
+                  },
+                  {
+                    id,
+                    chat: {
+                      interlocutor: {
+                        id: userId,
+                      },
+                    },
+                  },
+                  {
+                    id,
+                    chat: {
+                      participants: {
+                        userId: userId,
+                      },
+                    },
+                  },
+                  {
+                    id,
+                    forwarding: {
+                      chat: {
+                        author: {
+                          id: userId,
+                        },
+                      },
+                    },
+                  },
+                  {
+                    id,
+                    forwarding: {
+                      chat: {
+                        interlocutor: {
+                          id: userId,
+                        },
+                      },
+                    },
+                  },
+                  {
+                    id,
+                    forwarding: {
+                      chat: {
+                        participants: {
+                          userId: userId,
+                        },
+                      },
+                    },
+                  },
+                ],
+                relations: {
+                  author: true,
+                  chat: true,
+                },
+              })
+            : this.forwardedMessageRepository.findOne({
+                where: [
+                  {
+                    id,
+                    chat: {
+                      author: {
+                        id: userId,
+                      },
+                    },
+                  },
+                  {
+                    id,
+                    chat: {
+                      interlocutor: {
+                        id: userId,
+                      },
+                    },
+                  },
+                  {
+                    id,
+                    chat: {
+                      participants: {
+                        userId: userId,
+                      },
+                    },
+                  },
+                ],
+                relations: {
+                  message: true,
+                  forwardedBy: true,
+                  chat: true,
+                },
+              }),
         (reason) => new UnexpectedError(reason),
       ),
       taskEither.flatMap(taskEither.fromNullable(new NotFoundError())),
       taskEither.map((message) =>
         mapMessage(message, {
-          authorId: message.author.id,
+          authorId:
+            message instanceof Typeorm.Model.Message ? message.author.id : message.forwardedBy.id,
           chatId: message.chat.id,
         }),
       ),
@@ -332,10 +439,19 @@ class MessageService {
           ];
 
           return this.messageRepository.findOne({
-            where: chatWheres.map((chatWhere) => ({
-              ...baseWhere,
-              chat: chatWhere,
-            })),
+            where: chatWheres.map((chatWhere) =>
+              originType === domain.Message.Attribute.OriginType.Schema.original
+                ? {
+                    ...baseWhere,
+                    chat: chatWhere,
+                  }
+                : {
+                    forwarding: {
+                      ...(TypeGuard.isObject(baseWhere.forwarding) ? baseWhere.forwarding : {}),
+                      chat: chatWhere,
+                    },
+                  },
+            ),
           });
         },
         (reason) => new UnexpectedError(reason),
@@ -446,7 +562,7 @@ function mapChat({ id, messages, forwardedMessages }: Typeorm.Model.Chat) {
       ) => aCreatedAt.getTime() - bCreatedAt.getTime(),
     )
     .map((message) =>
-      mapMessage(message instanceof Typeorm.Model.Message ? message : message.message, {
+      mapMessage(message, {
         authorId:
           message instanceof Typeorm.Model.Message ? message.author.id : message.forwardedBy.id,
         chatId: id,

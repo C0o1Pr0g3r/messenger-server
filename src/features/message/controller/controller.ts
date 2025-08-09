@@ -4,6 +4,7 @@ import {
   Get,
   InternalServerErrorException,
   NotFoundException,
+  Param,
   Post,
   Query,
   UseGuards,
@@ -11,8 +12,18 @@ import {
 import { function as function_, taskEither } from "fp-ts";
 
 import { MessageService, MessageServiceIos } from "../service";
+import { ProhibitedOperationError } from "../service/error";
 
-import { Common, Create, Delete, Edit, Forward, GetMessagesByChatId, GetMine } from "./ios";
+import {
+  Common,
+  Create,
+  Delete,
+  Edit,
+  Forward,
+  GetById,
+  GetMessagesByChatId,
+  GetMine,
+} from "./ios";
 
 import { ForeignKeyViolationError, NotFoundError } from "~/app";
 import { Fp } from "~/common";
@@ -127,11 +138,14 @@ class MessageController {
   ): Promise<true> {
     return Fp.throwify(
       await function_.pipe(
-        this.messageService.getById(body),
+        this.messageService.getById({
+          ...body,
+          userId: user.id,
+        }),
         taskEither.flatMap((message) =>
           function_.pipe(
             this.messageService.delete({
-              id: body.id,
+              ...body,
               initiatorId: user.id,
             }),
             taskEither.tapIO(() =>
@@ -140,6 +154,9 @@ class MessageController {
             taskEither.mapLeft((error) => {
               if (error instanceof NotFoundError)
                 return new NotFoundException("Message with this ID not found.");
+
+              if (error instanceof ProhibitedOperationError)
+                return new NotFoundException(error.explanation);
 
               return new InternalServerErrorException();
             }),
@@ -175,6 +192,24 @@ class MessageController {
 
           return new InternalServerErrorException();
         }),
+      )(),
+    );
+  }
+
+  @Get("getmessagebyid/:id")
+  @UseGuards(AuthGuard)
+  async getMessageById(
+    @Param() path: GetById.ReqPath,
+    @CurrentUser() user: RequestWithUser["user"],
+  ): Promise<Common.ResBody> {
+    return Fp.throwify(
+      await function_.pipe(
+        this.messageService.getById({
+          ...path,
+          originType: domain.Message.Attribute.OriginType.Schema.original,
+          userId: user.id,
+        }),
+        taskEither.map(mapMessage),
       )(),
     );
   }
