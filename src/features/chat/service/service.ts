@@ -187,6 +187,9 @@ class ChatService {
                 user: true,
               },
             },
+            order: {
+              id: "ASC",
+            },
           }),
         (reason) => new UnexpectedError(reason),
       ),
