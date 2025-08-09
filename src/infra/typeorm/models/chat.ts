@@ -58,13 +58,16 @@ class Chat {
 
   @ManyToOne(() => User, ({ createdChats }) => createdChats, {
     nullable: false,
+    onDelete: "CASCADE",
   })
   @JoinColumn({
     name: "author_id",
   })
   author!: User;
 
-  @ManyToOne(() => User, ({ interlocutorOfChats }) => interlocutorOfChats)
+  @ManyToOne(() => User, ({ interlocutorOfChats }) => interlocutorOfChats, {
+    onDelete: "CASCADE",
+  })
   @JoinColumn({
     name: "interlocutor_id",
   })

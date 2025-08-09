@@ -43,6 +43,7 @@ class ChatParticipant {
 
   @ManyToOne(() => Chat, ({ participants }) => participants, {
     nullable: false,
+    onDelete: "CASCADE",
   })
   @JoinColumn({
     name: META.primaryColumnNames.chatId,
@@ -51,6 +52,7 @@ class ChatParticipant {
 
   @ManyToOne(() => User, ({ participantOfChats }) => participantOfChats, {
     nullable: false,
+    onDelete: "CASCADE",
   })
   @JoinColumn({
     name: META.primaryColumnNames.userId,

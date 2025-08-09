@@ -37,6 +37,7 @@ class ForwardedMessage {
 
   @ManyToOne(() => Message, ({ forwarding }) => forwarding, {
     nullable: false,
+    onDelete: "CASCADE",
   })
   @JoinColumn({
     name: META.foreignColumnNames.messageId,
@@ -46,6 +47,7 @@ class ForwardedMessage {
 
   @ManyToOne(() => User, ({ forwardedMessages }) => forwardedMessages, {
     nullable: false,
+    onDelete: "CASCADE",
   })
   @JoinColumn({
     name: META.foreignColumnNames.forwardedById,
@@ -55,6 +57,7 @@ class ForwardedMessage {
 
   @ManyToOne(() => Chat, ({ messages }) => messages, {
     nullable: false,
+    onDelete: "CASCADE",
   })
   @JoinColumn({
     name: META.foreignColumnNames.chatId,

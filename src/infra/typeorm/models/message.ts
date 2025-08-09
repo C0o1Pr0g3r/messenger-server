@@ -28,6 +28,7 @@ class Message {
 
   @ManyToOne(() => User, ({ createdMessages }) => createdMessages, {
     nullable: false,
+    onDelete: "CASCADE",
   })
   @JoinColumn({
     name: "author_id",
@@ -36,6 +37,7 @@ class Message {
 
   @ManyToOne(() => Chat, ({ messages }) => messages, {
     nullable: false,
+    onDelete: "CASCADE",
   })
   @JoinColumn({
     name: "chat_id",
