@@ -152,13 +152,13 @@ class MessageController {
   @Post("resendmessage")
   @UseGuards(AuthGuard)
   async forward(
-    @Body() body: Forward.ReqBody,
+    @Body() { data }: Forward.ReqBody,
     @CurrentUser() user: RequestWithUser["user"],
   ): Promise<true> {
     return Fp.throwify(
       await function_.pipe(
         this.messageService.forward({
-          ...body,
+          ...data,
           forwardedById: user.id,
         }),
         taskEither.mapLeft((error) => {
@@ -190,7 +190,7 @@ class MessageController {
   ) {
     return function_.pipe(
       this.chatService.getParticipantIds({
-        id: message.chatId,
+        id: message.data.chatId,
       }),
       taskEither.tapIO((participantIds) =>
         taskEither.right(
@@ -207,13 +207,31 @@ class MessageController {
   }
 }
 
-function mapMessage({ id, text, createdAt, authorId, chatId }: MessageServiceIos.Common.Out) {
+function mapMessage({
+  id,
+  createdAt,
+  authorId,
+  chatId,
+  ...params
+}: MessageServiceIos.Common.Out): Common.ResBody {
   return {
-    id,
-    text,
-    createdAt,
-    authorId,
-    chatId,
+    data: {
+      id,
+      createdAt,
+      authorId,
+      chatId,
+      ...(params[domain.Message.DISCRIMINATOR] ===
+      domain.Message.Attribute.OriginType.Schema.original
+        ? {
+            [domain.Message.DISCRIMINATOR]: params[domain.Message.DISCRIMINATOR],
+            text: params.text,
+          }
+        : {
+            [domain.Message.DISCRIMINATOR]: params[domain.Message.DISCRIMINATOR],
+
+            messageId: params.messageId,
+          }),
+    },
   };
 }
 

@@ -2,7 +2,7 @@ import type { z } from "zod";
 
 import { Message, User } from "~/domain";
 
-const zIn = Message.zSchema
+const zIn = Message.zOriginalSchema
   .pick({
     id: true,
   })

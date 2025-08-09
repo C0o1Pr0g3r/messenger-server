@@ -1,17 +1,11 @@
 import { createZodDto } from "nestjs-zod";
+import { z } from "zod";
 
-import { Chat, Message, User } from "~/domain";
+import { MessageServiceIos } from "../../service";
 
-const zResBody = Message.zSchema
-  .pick({
-    id: true,
-    text: true,
-    createdAt: true,
-  })
-  .extend({
-    authorId: User.zSchema.shape.id,
-    chatId: Chat.zBaseSchema.shape.id,
-  });
+const zResBody = z.object({
+  data: MessageServiceIos.Common.zOut,
+});
 class ResBody extends createZodDto(zResBody) {}
 
 export { ResBody, zResBody };

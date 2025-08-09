@@ -18,7 +18,7 @@ class Message {
   @PrimaryGeneratedColumn("identity")
   id!: number;
 
-  @Column(toColumnOptions(domain.Message.zSchema.shape.text))
+  @Column(toColumnOptions(domain.Message.zOriginalSchema.shape.text))
   text!: string;
 
   @Column(() => LifeCycleDates, {
