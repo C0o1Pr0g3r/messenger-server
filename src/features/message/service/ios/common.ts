@@ -17,7 +17,7 @@ const COMMON_EXTEND_SHAPE = {
   chatId: Chat.zBaseSchema.shape.id,
 };
 
-const originalOut = zBaseOut.merge(
+const zOriginalOut = zBaseOut.merge(
   Message.zOriginalSchema
     .pick({
       ...COMMON_KEYS_FOR_PICK,
@@ -26,7 +26,7 @@ const originalOut = zBaseOut.merge(
     .extend(COMMON_EXTEND_SHAPE),
 );
 
-const zForwardedOutOut = zBaseOut.merge(
+const zForwardedOut = zBaseOut.merge(
   Message.zForwardedSchema
     .pick({
       ...COMMON_KEYS_FOR_PICK,
@@ -34,9 +34,10 @@ const zForwardedOutOut = zBaseOut.merge(
     })
     .extend(COMMON_EXTEND_SHAPE),
 );
+type ForwardedOut = z.infer<typeof zForwardedOut>;
 
-const zOut = z.discriminatedUnion(Message.DISCRIMINATOR, [originalOut, zForwardedOutOut]);
+const zOut = z.discriminatedUnion(Message.DISCRIMINATOR, [zOriginalOut, zForwardedOut]);
 type Out = z.infer<typeof zOut>;
 
-export { originalOut, zBaseOut, zForwardedOutOut, zOut };
-export type { BaseOut, Out };
+export { zBaseOut, zForwardedOut, zOriginalOut, zOut };
+export type { BaseOut, ForwardedOut, Out };

@@ -398,7 +398,10 @@ class MessageService {
     originType,
     forwardedById,
     chatId,
-  }: Forward.In): taskEither.TaskEither<UnexpectedError | ForeignKeyViolationError, true> {
+  }: Forward.In): taskEither.TaskEither<
+    UnexpectedError | ForeignKeyViolationError,
+    Common.ForwardedOut
+  > {
     return function_.pipe(
       taskEither.tryCatch(
         () => {
@@ -548,7 +551,17 @@ class MessageService {
           ),
         ),
       ),
-      taskEither.map(() => true),
+      taskEither.map(
+        (forwardedMessage) =>
+          ({
+            id: forwardedMessage.id,
+            originType: domain.Message.Attribute.OriginType.Schema.forwarded,
+            createdAt: forwardedMessage.lifeCycleDates.createdAt,
+            messageId: id,
+            authorId: forwardedById,
+            chatId,
+          }) satisfies Common.ForwardedOut,
+      ),
     );
   }
 }

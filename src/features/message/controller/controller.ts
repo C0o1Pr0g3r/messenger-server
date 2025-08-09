@@ -171,13 +171,17 @@ class MessageController {
   async forward(
     @Body() { data }: Forward.ReqBody,
     @CurrentUser() user: RequestWithUser["user"],
-  ): Promise<true> {
+  ): Promise<Common.ResBody> {
     return Fp.throwify(
       await function_.pipe(
         this.messageService.forward({
           ...data,
           forwardedById: user.id,
         }),
+        taskEither.map(mapMessage),
+        taskEither.tapIO((message) =>
+          this.sendWsMessage(Outgoing.MessageType.SendMessage, message),
+        ),
         taskEither.mapLeft((error) => {
           if (error instanceof ForeignKeyViolationError) {
             switch (error.constraintName) {
