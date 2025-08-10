@@ -549,18 +549,49 @@ class MessageService {
               return new UnexpectedError(reason);
             },
           ),
+          taskEither.map(
+            (forwardedMessage) =>
+              ({
+                id: forwardedMessage.id,
+                originType: domain.Message.Attribute.OriginType.Schema.forwarded,
+                createdAt: forwardedMessage.lifeCycleDates.createdAt,
+                messageId: message.id,
+                authorId: forwardedById,
+                chatId,
+              }) satisfies Common.ForwardedOut,
+          ),
         ),
       ),
-      taskEither.map(
-        (forwardedMessage) =>
-          ({
-            id: forwardedMessage.id,
-            originType: domain.Message.Attribute.OriginType.Schema.forwarded,
-            createdAt: forwardedMessage.lifeCycleDates.createdAt,
-            messageId: id,
-            authorId: forwardedById,
-            chatId,
-          }) satisfies Common.ForwardedOut,
+    );
+  }
+
+  getForwardedMessages({
+    id,
+  }: Pick<domain.Message.OriginalSchema, "id">): taskEither.TaskEither<
+    UnexpectedError,
+    Typeorm.Model.ForwardedMessage[]
+  > {
+    return function_.pipe(
+      taskEither.tryCatch(
+        () =>
+          this.forwardedMessageRepository.find({
+            where: {
+              message: {
+                id,
+              },
+            },
+
+            relations: {
+              message: true,
+              forwardedBy: true,
+              chat: {
+                author: true,
+                interlocutor: true,
+                participants: true,
+              },
+            },
+          }),
+        (reason) => new UnexpectedError(reason),
       ),
     );
   }

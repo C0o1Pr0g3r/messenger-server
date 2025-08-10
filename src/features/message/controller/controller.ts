@@ -144,12 +144,51 @@ class MessageController {
         }),
         taskEither.flatMap((message) =>
           function_.pipe(
+            this.messageService.getForwardedMessages({
+              id: message.id,
+            }),
+            taskEither.map((forwardedMessages) => ({
+              message,
+              forwardedMessages,
+            })),
+          ),
+        ),
+        taskEither.flatMap(({ message, forwardedMessages }) =>
+          function_.pipe(
             this.messageService.delete({
               ...body,
               initiatorId: user.id,
             }),
             taskEither.tapIO(() =>
               this.sendWsMessage(Outgoing.MessageType.DeleteMessage, mapMessage(message)),
+            ),
+            taskEither.tapIO(() =>
+              taskEither.right(
+                forwardedMessages.forEach((forwardedMessage) =>
+                  this.eventGateway.sendMessage(
+                    {
+                      type: Outgoing.MessageType.DeleteMessage,
+                      data: {
+                        data: {
+                          id: forwardedMessage.id,
+                          originType: domain.Message.Attribute.OriginType.Schema.forwarded,
+                          createdAt: forwardedMessage.lifeCycleDates.createdAt,
+                          messageId: forwardedMessage.message.id,
+                          authorId: forwardedMessage.forwardedBy.id,
+                          chatId: forwardedMessage.chat.id,
+                        },
+                      },
+                    },
+                    [
+                      forwardedMessage.chat.author.id,
+                      ...(forwardedMessage.chat.interlocutor === null
+                        ? []
+                        : [forwardedMessage.chat.interlocutor.id]),
+                      ...forwardedMessage.chat.participants.map(({ userId }) => userId),
+                    ],
+                  ),
+                ),
+              ),
             ),
             taskEither.mapLeft((error) => {
               if (error instanceof NotFoundError)
