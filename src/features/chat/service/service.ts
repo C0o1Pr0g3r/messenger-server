@@ -5,7 +5,7 @@ import { TaskEither } from "fp-ts/lib/TaskEither";
 import { DataSource, DeepPartial, In, Repository } from "typeorm";
 
 import { InterlocutorNotFoundError, ProhibitedOperationError } from "./error";
-import { AddUserToChat, Common, Create, GetById, GetMine, GetParticipantIds } from "./ios";
+import { AddUserToChat, Common, Create, Delete, GetById, GetMine, GetParticipantIds } from "./ios";
 
 import { NotFoundError, UniqueKeyViolationError } from "~/app";
 import { File, Fp, Generator, ImpossibleError, UnexpectedError } from "~/common";
@@ -352,6 +352,57 @@ class ChatService {
           chatModel.type === domain.Chat.Attribute.Type.Schema.dialogue
             ? [chatModel.author, chatModel.interlocutor]
             : chatModel.participants.map(({ user }) => user),
+        ),
+      ),
+    );
+  }
+
+  delete({
+    id,
+    initiatorId,
+  }: Delete.In): taskEither.TaskEither<
+    UnexpectedError | ImpossibleError | NotFoundError | ProhibitedOperationError,
+    Common.Out
+  > {
+    return function_.pipe(
+      taskEither.tryCatch(
+        () =>
+          this.chatRepository.findOne({
+            where: {
+              id,
+            },
+            relations: {
+              author: true,
+              interlocutor: true,
+              participants: {
+                user: true,
+              },
+            },
+          }),
+        (reason) => new UnexpectedError(reason),
+      ),
+      taskEither.flatMap(taskEither.fromNullable(new NotFoundError())),
+      taskEither.flatMap(
+        taskEither.fromPredicate(
+          ({ author, interlocutor }) =>
+            [author.id, ...(interlocutor ? [interlocutor.id] : [])].includes(initiatorId),
+          () => new ProhibitedOperationError("You do not have permission to delete this chat."),
+        ),
+      ),
+      taskEither.flatMap((chatModel) =>
+        function_.pipe(
+          taskEither.tryCatch(
+            () => this.chatRepository.delete({ id }),
+            (reason) => new UnexpectedError(reason),
+          ),
+          taskEither.flatMap(() =>
+            mapChat(
+              chatModel,
+              chatModel.type === domain.Chat.Attribute.Type.Schema.dialogue
+                ? [chatModel.author, chatModel.interlocutor]
+                : chatModel.participants.map(({ user }) => user),
+            ),
+          ),
         ),
       ),
     );

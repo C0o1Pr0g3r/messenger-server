@@ -26,10 +26,11 @@ Implemented functions:
 - login
 - search for a user by nickname or email address
 - editing by a user of some information related to his account
-- creating a chat
 - 2 types of chats:
   - personal (for 2 people only)
   - group (for several people)
+- creating chats
+- deleting chats
 - adding members to a group chat
 - text messages only
 - sending messages

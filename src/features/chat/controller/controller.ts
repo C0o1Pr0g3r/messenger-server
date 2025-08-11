@@ -5,6 +5,7 @@ import {
   Controller,
   Get,
   InternalServerErrorException,
+  Param,
   Post,
   UseGuards,
 } from "@nestjs/common";
@@ -14,9 +15,9 @@ import { z } from "zod";
 import { ChatService, ChatServiceIos } from "../service";
 import { InterlocutorNotFoundError, ProhibitedOperationError } from "../service/error";
 
-import { AddUserToChat, Common, Create, GetMine } from "./ios";
+import { AddUserToChat, Common, Create, Delete, GetMine } from "./ios";
 
-import { UniqueKeyViolationError } from "~/app";
+import { NotFoundError, UniqueKeyViolationError } from "~/app";
 import { Fp, Str } from "~/common";
 import * as domain from "~/domain";
 import { AuthGuard } from "~/features/auth/auth.guard";
@@ -185,6 +186,43 @@ class ChatController {
 
       throw error;
     }
+  }
+
+  @Post("delete/:id")
+  @UseGuards(AuthGuard)
+  async delete(
+    @Param() { id }: Delete.ReqPath,
+    @CurrentUser() user: RequestWithUser["user"],
+  ): Promise<Common.ResBody> {
+    return Fp.throwify(
+      await function_.pipe(
+        this.chatService.delete({
+          id,
+          initiatorId: user.id,
+        }),
+        taskEither.map((chat) => mapChat(chat, user.id)),
+        taskEither.tapIO((chat) =>
+          taskEither.right(
+            this.eventGateway.sendMessage(
+              {
+                type: Outgoing.MessageType.DeleteChat,
+                data: chat,
+              },
+              chat.participants.map(({ id }) => id),
+            ),
+          ),
+        ),
+        taskEither.mapLeft((error) => {
+          if (error instanceof NotFoundError)
+            return new BadRequestException(`Unable to find chat with ID = ${id}.`);
+
+          if (error instanceof ProhibitedOperationError)
+            return new BadRequestException(error.explanation);
+
+          return new InternalServerErrorException();
+        }),
+      )(),
+    );
   }
 
   private sendWsMessage(
